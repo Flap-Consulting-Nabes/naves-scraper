@@ -430,3 +430,63 @@ python scraper_engine.py --batch 100
 # Reanudar tras interrupción (el checkpoint lo hace automático)
 python scraper_engine.py --batch 100
 ```
+
+---
+
+## 7. Gestión de servicios (API + Dashboard)
+
+### Iniciar
+
+```bash
+bash start.sh
+```
+
+Lanza la API (puerto 8000) y el dashboard (puerto 8501) en segundo plano.
+Los PID se guardan en `logs/api.pid` y `logs/dashboard.pid`.
+
+### Detener
+
+```bash
+bash stop.sh
+```
+
+### Reiniciar
+
+```bash
+bash restart.sh
+```
+
+Equivale a `stop.sh` + `start.sh`.
+
+### Ver logs en tiempo real
+
+```bash
+tail -f logs/api.log        # logs de la API (FastAPI / uvicorn)
+tail -f logs/dashboard.log  # logs del dashboard (Streamlit)
+tail -f logs/scraper.log    # logs del scraper cuando está en marcha
+```
+
+### Comandos manuales (sin scripts)
+
+```bash
+# Iniciar
+nohup bash run_api.sh > logs/api.log 2>&1 & echo $! > logs/api.pid
+nohup bash run_dashboard.sh > logs/dashboard.log 2>&1 & echo $! > logs/dashboard.pid
+
+# Detener por PID guardado
+kill $(cat logs/api.pid)
+kill $(cat logs/dashboard.pid)
+
+# Detener por nombre de proceso (alternativa)
+pkill -f "uvicorn api.main:app"
+pkill -f "streamlit run dashboard/app.py"
+```
+
+### Acceso
+
+| Servicio   | URL                    |
+|------------|------------------------|
+| Dashboard  | http://localhost:8501  |
+| API        | http://localhost:8000  |
+| API health | http://localhost:8000/health |
+```
