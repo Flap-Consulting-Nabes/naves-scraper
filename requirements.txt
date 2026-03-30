@@ -1,0 +1,24 @@
+# Scraper core
+zendriver>=0.15.0
+beautifulsoup4>=4.12.3
+tenacity>=8.3.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+
+# FastAPI microservice
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# HTTP client asíncrono (Webflow API)
+httpx>=0.27.0
+
+# Scheduler
+apscheduler>=3.10.4
+sqlalchemy>=2.0.0
+
+# Validación cron
+croniter>=2.0.0
+
+# Dashboard
+streamlit>=1.35.0
+pandas>=2.2.0

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Naves Scraper — Guía de Producción</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background: #0a0a1a;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(99,102,241,0.18) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(16,185,129,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(80,0,120,0.10) 0%, transparent 60%);
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    .orb {
+      position: fixed; border-radius: 50%; filter: blur(80px);
+      opacity: 0.22; pointer-events: none; animation: float 8s ease-in-out infinite;
+    }
+    .orb-1 { width: 500px; height: 500px; background: #6366f1; top: -100px; left: -100px; animation-delay: 0s; }
+    .orb-2 { width: 400px; height: 400px; background: #10b981; bottom: -100px; right: -100px; animation-delay: 4s; }
+    .orb-3 { width: 300px; height: 300px; background: #8b5cf6; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: 2s; }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-30px) scale(1.05); }
+    }
+
+    .container { max-width: 840px; margin: 0 auto; padding: 60px 24px 80px; position: relative; z-index: 1; }
+
+    .header { text-align: center; margin-bottom: 48px; }
+    .logo { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .logo-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #6366f1, #10b981);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-sub { font-size: 12px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
+    h1 {
+      font-size: 38px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.1;
+      background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.6) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 12px;
+    }
+    .subtitle { font-size: 15px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+
+    .tab-selector {
+      display: flex; gap: 12px; margin-bottom: 32px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 6px;
+    }
+    .tab-btn {
+      flex: 1; padding: 12px 20px; border: none; border-radius: 10px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.25s ease; background: transparent; color: rgba(255,255,255,0.45);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #6366f1, #10b981); color: #fff;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+    }
+    .tab-btn:not(.active):hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); }
+    .tab-icon { font-size: 16px; }
+
+    .steps { display: flex; flex-direction: column; gap: 16px; }
+    .step {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; overflow: hidden; transition: border-color 0.2s;
+    }
+    .step:hover { border-color: rgba(255,255,255,0.15); }
+    .step-header { display: flex; align-items: flex-start; gap: 16px; padding: 20px 24px; }
+    .step-number {
+      width: 32px; height: 32px; min-width: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #10b981);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
+    }
+    .step-info { flex: 1; }
+    .step-title { font-size: 15px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+    .step-desc { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+    .step-body { padding: 0 24px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+    .code-block {
+      position: relative; background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden;
+    }
+    .code-label {
+      padding: 8px 14px; font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02); display: flex; align-items: center; gap: 6px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #fbbf24; }
+    .dot-green { background: #22c55e; }
+
+    pre {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+      color: #e2e8f0; padding: 16px; overflow-x: auto; white-space: pre;
+    }
+    .copy-btn {
+      position: absolute; top: 36px; right: 10px;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px; color: rgba(255,255,255,0.5);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+      padding: 5px 10px; cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .copy-btn.copied { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.4); color: #22c55e; }
+
+    .env-table { width: 100%; border-collapse: collapse; }
+    .env-table th {
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.3); text-align: left; padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .env-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+    .env-table tr:last-child td { border-bottom: none; }
+    .env-key { font-family: 'JetBrains Mono', monospace; color: #818cf8; white-space: nowrap; }
+    .env-desc { color: rgba(255,255,255,0.55); line-height: 1.5; }
+    .env-req { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+    .required { background: rgba(239,68,68,0.15); color: #f87171; }
+    .optional  { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); }
+    .auto      { background: rgba(16,185,129,0.12); color: #34d399; }
+
+    .alert { display: flex; gap: 12px; padding: 14px 16px; border-radius: 10px; font-size: 13px; line-height: 1.55; }
+    .alert-warning { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2); color: #fbbf24; }
+    .alert-info    { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); color: #a5b4fc; }
+    .alert-success { background: rgba(34,197,94,0.08);  border: 1px solid rgba(34,197,94,0.2);  color: #86efac; }
+    .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+      color: rgba(255,255,255,0.25); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+
+    .cm { color: rgba(255,255,255,0.3); }
+    .kw { color: #818cf8; }
+    .st { color: #86efac; }
+    .nm { color: #93c5fd; }
+
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: #818cf8;
+    }
+
+    .footer { text-align: center; margin-top: 48px; font-size: 12px; color: rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body>
+
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="container">
+
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">🏭</div>
+        <div>
+          <div class="logo-text">Naves Scraper</div>
+          <div class="logo-sub">Guía de Producción</div>
+        </div>
+      </div>
+      <h1>Setup &amp; Producción</h1>
+      <p class="subtitle">De cero a producción — configura el scraper, la API y el dashboard<br/>con un solo comando en tu Mac o servidor Linux</p>
+    </div>
+
+    <div class="tab-selector">
+      <button class="tab-btn active" onclick="switchOS('mac')" id="btn-mac">
+        <span class="tab-icon">🍎</span> Mac
+      </button>
+      <button class="tab-btn" onclick="switchOS('linux')" id="btn-linux">
+        <span class="tab-icon">🐧</span> Linux
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════ MAC ═══════════════════════════ -->
+    <div class="tab-content active" id="tab-mac">
+
+      <div class="section-title">Paso a paso — Mac</div>
+      <div class="steps">
+
+        <!-- PASO 1 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-info">
+              <div class="step-title">Prerequisitos</div>
+              <div class="step-desc">Homebrew + Python 3.11 o superior</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="alert alert-info">
+              <span class="alert-icon">ℹ️</span>
+              Si ya tienes Python 3.11+ puedes saltar al paso 2. Comprueba con <code>python3 --version</code>.
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal</div>
+              <pre><span class="cm"># Instalar Homebrew (si no lo tienes)</span>
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+<span class="cm"># Instalar Python 3.12</span>
+brew install python@3.12
+
+<span class="cm"># Verificar</span>
+python3 --version
+git --version</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 2 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">2</div>
+            <div class="step-info">
+              <div class="step-title">Clonar y ejecutar el instalador</div>
+              <div class="step-desc">Un solo comando configura el entorno, instala dependencias y genera credenciales</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal</div>
+              <pre><span class="cm"># Clonar el repositorio</span>
+git clone &lt;URL_DEL_REPOSITORIO&gt;
+cd milanuncions_scraper
+
+<span class="cm"># Setup en un comando — crea venv, instala deps, genera .env y API key</span>
+bash install.sh</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="alert alert-success">
+              <span class="alert-icon">✅</span>
+              <code>install.sh</code> crea automáticamente <code>venv/</code>, instala todas las dependencias, copia <code>.env.example → .env</code> y genera un <code>API_SECRET_KEY</code> aleatorio seguro.
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 3 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">3</div>
+            <div class="step-info">
+              <div class="step-title">Configurar el archivo <code>.env</code></div>
+              <div class="step-desc">Edita las credenciales necesarias</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal</div>
+              <pre>nano .env    <span class="cm"># o: open -e .env  /  code .env</span></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;">
+              <table class="env-table">
+                <thead>
+                  <tr><th>Variable</th><th>Descripción</th><th>Tipo</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="env-key">WEBFLOW_TOKEN</td>
+                    <td class="env-desc">Token de API de Webflow (Settings → Integrations → API token)</td>
+                    <td><span class="env-req required">Obligatorio</span></td>
+                  </tr>
+                  <tr>
+                    <td class="env-key">WEBFLOW_COLLECTION_ID</td>
+                    <td class="env-desc">ID de la colección de Webflow donde se publican las naves</td>
+                    <td><span class="env-req required">Obligatorio</span></td>
+                  </tr>
+                  <tr>
+                    <td class="env-key">DASHBOARD_PASSWORD</td>
+                    <td class="env-desc">Contraseña para acceder al dashboard Streamlit</td>
+                    <td><span class="env-req required">Obligatorio</span></td>
+                  </tr>
+                  <tr>
+                    <td class="env-key">API_SECRET_KEY</td>
+                    <td class="env-desc">Token de acceso a la API REST (generado automáticamente por install.sh)</td>
+                    <td><span class="env-req auto">Auto-generado</span></td>
+                  </tr>
+                  <tr>
+                    <td class="env-key">MIN_SURFACE_M2</td>
+                    <td class="env-desc">Superficie mínima en m² para incluir un anuncio (por defecto: 1000)</td>
+                    <td><span class="env-req optional">Opcional</span></td>
+                  </tr>
+                  <tr>
+                    <td class="env-key">MAX_PAGES</td>
+                    <td class="env-desc">Páginas máximas a scrapear por ejecución (0 = sin límite)</td>
+                    <td><span class="env-req optional">Opcional</span></td>
+                  </tr>
+                  <tr>
+                    <td class="env-key">DOWNLOAD_IMAGES</td>
+                    <td class="env-desc">Descargar imágenes localmente antes de subir a Webflow (true/false)</td>
+                    <td><span class="env-req optional">Opcional</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 4 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">4</div>
+            <div class="step-info">
+              <div class="step-title">Configurar sesión de MilAnuncios</div>
+              <div class="step-desc">Login manual una vez — las cookies duran ~30 min y se renuevan desde el dashboard</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="alert alert-warning">
+              <span class="alert-icon">⚠️</span>
+              Este paso abre Chrome visualmente para que puedas hacer login. <strong>Requiere pantalla</strong> — en Mac funciona directamente, sin configuración adicional.
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal</div>
+              <pre><span class="cm"># Activar el entorno virtual (si no lo tienes activado)</span>
+source venv/bin/activate
+
+<span class="cm"># Abrir Chrome y esperar al login manual (máx. 10 min)</span>
+python save_session.py</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="alert alert-info">
+              <span class="alert-icon">ℹ️</span>
+              El script espera a que inicies sesión en MilAnuncios y guarda las cookies en <code>session.json</code> automáticamente. Las cookies expiran en ~30 min — puedes renovarlas desde el dashboard sin salir del terminal.
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 5 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">5</div>
+            <div class="step-info">
+              <div class="step-title">Verificar que todo funciona</div>
+              <div class="step-desc">Tests rápidos antes de pasar a producción</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal</div>
+              <pre><span class="cm"># Verificar imports principales</span>
+python -c "from scraper_engine import main; print('scraper_engine OK')"
+python -c "from api.main import app; print('API OK')"
+python -c "from db import init_db; init_db(); print('DB OK')"
+
+<span class="cm"># Scrape de prueba — 1 página, sin escribir en DB</span>
+python scraper_engine.py --pages 1 --dry-run</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 6 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">6</div>
+            <div class="step-info">
+              <div class="step-title">Producción — ejecutar en background</div>
+              <div class="step-desc">Servicios persistentes que sobreviven al cierre del terminal</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal — arrancar servicios</div>
+              <pre><span class="cm"># API en background (puerto 8000)</span>
+nohup bash run_api.sh > logs/api.log 2>&1 &
+echo $! > logs/api.pid
+echo "API iniciada con PID $(cat logs/api.pid)"
+
+<span class="cm"># Dashboard en background (puerto 8501)</span>
+nohup bash run_dashboard.sh > logs/dashboard.log 2>&1 &
+echo $! > logs/dashboard.pid
+echo "Dashboard iniciado con PID $(cat logs/dashboard.pid)"</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal — ver logs en tiempo real</div>
+              <pre><span class="cm"># Ver logs de la API</span>
+tail -f logs/api.log
+
+<span class="cm"># Ver logs del dashboard</span>
+tail -f logs/dashboard.log
+
+<span class="cm"># Ver logs del scraper (cuando está en ejecución)</span>
+tail -f scraper.log</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Terminal — parar servicios</div>
+              <pre><span class="cm"># SIGTERM — espera a que terminen limpiamente</span>
+kill $(cat logs/api.pid) $(cat logs/dashboard.pid)
+
+<span class="cm"># Verificar que han parado</span>
+ps aux | grep -E "uvicorn|streamlit"</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="alert alert-success">
+              <span class="alert-icon">✅</span>
+              El cron se configura desde el dashboard (sección <strong>Programación</strong>) o via API: <code>PUT /api/cron</code>. Por defecto ejecuta a las 6:00 AM hora Madrid.
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /steps mac -->
+    </div>
+
+    <!-- ═══════════════════════════ LINUX ═══════════════════════════ -->
+    <div class="tab-content" id="tab-linux">
+
+      <div class="section-title">Paso a paso — Linux (Ubuntu/Debian)</div>
+      <div class="steps">
+
+        <!-- PASO 1 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-info">
+              <div class="step-title">Prerequisitos</div>
+              <div class="step-desc">Python 3.11+, Git, y Xvfb para Chrome headful en servidor sin pantalla</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash</div>
+              <pre>sudo apt update
+sudo apt install python3.12 python3.12-venv git xvfb -y
+
+<span class="cm"># Verificar</span>
+python3 --version
+git --version</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="alert alert-warning">
+              <span class="alert-icon">⚠️</span>
+              En Linux sin pantalla física, <code>run_api.sh</code> ya configura <code>DISPLAY=:99</code> y lanza Xvfb automáticamente para que Chrome pueda ejecutarse en modo headful (requerido para evitar detección anti-bot).
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 2 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">2</div>
+            <div class="step-info">
+              <div class="step-title">Clonar y ejecutar el instalador</div>
+              <div class="step-desc">Un solo comando configura todo</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash</div>
+              <pre>git clone &lt;URL_DEL_REPOSITORIO&gt;
+cd milanuncions_scraper
+
+bash install.sh</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 3 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">3</div>
+            <div class="step-info">
+              <div class="step-title">Configurar el archivo <code>.env</code></div>
+              <div class="step-desc">Rellena las credenciales obligatorias</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash</div>
+              <pre>nano .env    <span class="cm"># o: vim .env</span></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Contenido .env</div>
+              <pre><span class="nm">WEBFLOW_TOKEN</span>=tu_token_de_webflow
+<span class="nm">WEBFLOW_COLLECTION_ID</span>=id_de_tu_coleccion
+<span class="nm">DASHBOARD_PASSWORD</span>=una_contrasena_segura
+
+<span class="cm"># API_SECRET_KEY ya fue generada por install.sh — no la cambies</span></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 4 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">4</div>
+            <div class="step-info">
+              <div class="step-title">Configurar sesión de MilAnuncios</div>
+              <div class="step-desc">En servidor Linux necesitas acceso VNC o X11 forwarding para el login visual</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="alert alert-info">
+              <span class="alert-icon">ℹ️</span>
+              Si el servidor no tiene pantalla, conecta primero via VNC o usa <code>ssh -X</code> (X11 forwarding) para que Chrome pueda abrirse visualmente.
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash — con X11 forwarding</div>
+              <pre><span class="cm"># Conectar con X11 forwarding</span>
+ssh -X usuario@servidor
+
+<span class="cm"># En el servidor, activar venv y lanzar sesión</span>
+cd milanuncions_scraper
+source venv/bin/activate
+DISPLAY=:0 python save_session.py</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 5 -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">5</div>
+            <div class="step-info">
+              <div class="step-title">Producción — ejecutar en background</div>
+              <div class="step-desc">Con <code>nohup</code> los servicios sobreviven al cierre del terminal</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash — arrancar</div>
+              <pre><span class="cm"># API en background (Xvfb integrado en run_api.sh)</span>
+nohup bash run_api.sh > logs/api.log 2>&1 &
+echo $! > logs/api.pid
+
+<span class="cm"># Dashboard en background</span>
+nohup bash run_dashboard.sh > logs/dashboard.log 2>&1 &
+echo $! > logs/dashboard.pid
+
+echo "API PID: $(cat logs/api.pid)"
+echo "Dashboard PID: $(cat logs/dashboard.pid)"</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash — ver logs</div>
+              <pre>tail -f logs/api.log
+tail -f logs/dashboard.log</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-block">
+              <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> bash — parar</div>
+              <pre>kill $(cat logs/api.pid) $(cat logs/dashboard.pid)</pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="alert alert-success">
+              <span class="alert-icon">✅</span>
+              Los servicios están activos. El scraper se ejecuta automáticamente según el cron configurado en el dashboard (por defecto: 6:00 AM hora Madrid).
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /steps linux -->
+    </div>
+
+    <!-- Referencia rápida -->
+    <div style="margin-top:40px;">
+      <div class="section-title">Referencia rápida</div>
+      <div class="step">
+        <div class="step-header" style="padding-bottom:0;">
+          <div class="step-info">
+            <div class="step-title">URLs de los servicios y comandos habituales</div>
+          </div>
+        </div>
+        <div class="step-body">
+          <div class="code-block">
+            <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> URLs</div>
+            <pre><span class="cm"># Dashboard (monitorización + control)</span>
+http://localhost:8501
+
+<span class="cm"># API REST (health check)</span>
+http://localhost:8000/health
+
+<span class="cm"># Estado del scraper</span>
+http://localhost:8000/api/scraper/status</pre>
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <div class="code-block">
+            <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Comandos del scraper (manual)</div>
+            <pre>source venv/bin/activate
+
+<span class="cm"># Scrape incremental (reanuda desde checkpoint)</span>
+python scraper_engine.py
+
+<span class="cm"># Limitar a N páginas</span>
+python scraper_engine.py --pages 5
+
+<span class="cm"># Prueba sin escribir en DB</span>
+python scraper_engine.py --pages 1 --dry-run
+
+<span class="cm"># Reiniciar desde la página 1</span>
+python scraper_engine.py --reset
+
+<span class="cm"># Renovar sesión (login manual)</span>
+python save_session.py</pre>
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <div class="code-block">
+            <div class="code-label"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span> Archivos importantes</div>
+            <pre><span class="cm"># ⚠️  NUNCA borrar — contiene la identidad del navegador anti-bot</span>
+chrome_profile/
+
+<span class="cm"># Cookies de sesión (regenerar con save_session.py si expiran)</span>
+session.json
+
+<span class="cm"># Estado actual del scraper</span>
+scraper_status.json
+
+<span class="cm"># Posición de reanudación</span>
+checkpoint.json</pre>
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Naves Scraper &bull; Guía de Producción &bull; milanuncios.com
+    </div>
+
+  </div>
+
+  <script>
+    function switchOS(os) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + os).classList.add('active');
+      document.getElementById('btn-' + os).classList.add('active');
+    }
+
+    function copyCode(btn) {
+      const pre = btn.closest('.code-block').querySelector('pre');
+      navigator.clipboard.writeText((pre.innerText || pre.textContent).trim()).then(() => {
+        btn.textContent = '✓ Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

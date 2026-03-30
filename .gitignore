@@ -1,0 +1,49 @@
+# Credenciales y sesión — NUNCA commitear
+.env
+session.json
+
+# Estado de ejecución (runtime)
+checkpoint.json
+scraper_status.json
+session_status.json
+
+# SQLite WAL files (temporales)
+*.db-shm
+*.db-wal
+
+# scheduler.db — se regenera automáticamente
+scheduler.db
+
+# Logs
+*.log
+logs/
+
+# Imágenes descargadas (demasiado grandes para git)
+images/
+
+# Chrome — perfil acumulado de fingerprint anti-bot (máquina específica)
+chrome_profile/
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Dev artifacts
+test_*.py
+plan-*.md
+plan_*.md
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

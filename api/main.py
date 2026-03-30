@@ -1,0 +1,267 @@
+"""
+Microservicio FastAPI para el scraper de naves industriales.
+
+Endpoints:
+  GET  /health
+  POST /api/scraper/run
+  GET  /api/scraper/status
+  POST /api/scraper/stop
+  GET  /api/listings
+  GET  /api/logs
+  GET  /api/cron
+  PUT  /api/cron
+  POST /api/webflow/sync
+  GET  /api/webflow/status
+"""
+import asyncio
+import collections
+import logging
+import math
+import sqlite3
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Literal
+
+from croniter import CroniterBadCronError, croniter
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from api.dependencies import DB_PATH, get_config, get_db, save_config, verify_api_key
+from api.scraper_job import (
+    launch_scraper, launch_session_renewal,
+    read_status, read_session_status,
+    recover_stale_status, recover_stale_session_status, stop_scraper,
+)
+from db import get_listings_paginated, init_db
+
+logger = logging.getLogger(__name__)
+
+LOG_FILE = Path("logs/scraper.log")
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Inicializar DB y correr migraciones (añade columnas nuevas si faltan)
+    conn = init_db(DB_PATH)
+    conn.close()
+    logger.info("[API] DB inicializada y migrada")
+
+    # Corregir estado zombie si hubo crash previo
+    recover_stale_status()
+    recover_stale_session_status()
+
+    # Iniciar scheduler
+    from scheduler import get_scheduler
+    scheduler = get_scheduler()
+    scheduler.start()
+    logger.info("[API] Scheduler iniciado")
+
+    yield
+
+    scheduler.shutdown(wait=False)
+    logger.info("[API] Scheduler detenido")
+
+
+# ── App ───────────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="Naves Scraper API",
+    version="1.0.0",
+    description="Microservicio para scraping de naves industriales en Milanuncios",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ── Modelos Pydantic ──────────────────────────────────────────────────────────
+
+class CronConfigRequest(BaseModel):
+    cron_expr: str
+    max_pages: int = 0
+
+
+class ScrapeRunRequest(BaseModel):
+    max_pages: int = 0
+    dry_run: bool = False
+    reset: bool = False
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
+
+@app.get("/health", tags=["sistema"])
+async def health():
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+# ── Scraper ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/scraper/run", dependencies=[Depends(verify_api_key)], tags=["scraper"])
+async def scraper_run(body: ScrapeRunRequest = ScrapeRunRequest()):
+    launched = await launch_scraper(
+        max_pages=body.max_pages,
+        dry_run=body.dry_run,
+        reset=body.reset,
+    )
+    if not launched:
+        raise HTTPException(status_code=409, detail="El scraper ya está en ejecución")
+    return {"status": "iniciado"}
+
+
+@app.get("/api/scraper/status", dependencies=[Depends(verify_api_key)], tags=["scraper"])
+async def scraper_status():
+    return read_status()
+
+
+@app.post("/api/scraper/stop", dependencies=[Depends(verify_api_key)], tags=["scraper"])
+async def scraper_stop():
+    stopped = await stop_scraper()
+    if not stopped:
+        raise HTTPException(status_code=409, detail="El scraper no está en ejecución")
+    return {"status": "detenido"}
+
+
+# ── Listings ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/listings", dependencies=[Depends(verify_api_key)], tags=["datos"])
+async def get_listings(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    province: str | None = Query(None),
+    min_surface: float | None = Query(None, ge=0),
+    max_price: float | None = Query(None, ge=0),
+    sort_by: str = Query("scraped_at"),
+    sort_dir: Literal["asc", "desc"] = Query("desc"),
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    rows, total = get_listings_paginated(
+        conn,
+        page=page,
+        page_size=page_size,
+        province=province,
+        min_surface=min_surface,
+        max_price=max_price,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    return {
+        "items": rows,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": math.ceil(total / page_size) if total else 1,
+    }
+
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+
+@app.get("/api/logs", dependencies=[Depends(verify_api_key)], tags=["sistema"])
+async def get_logs(lines: int = Query(200, ge=10, le=1000)):
+    if not LOG_FILE.exists():
+        return {"lines": [], "file": str(LOG_FILE)}
+    dq: collections.deque[str] = collections.deque(maxlen=lines)
+    with LOG_FILE.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            dq.append(line.rstrip())
+    return {"lines": list(dq), "file": str(LOG_FILE)}
+
+
+# ── Cron ──────────────────────────────────────────────────────────────────────
+
+@app.get("/api/cron", dependencies=[Depends(verify_api_key)], tags=["scheduler"])
+async def get_cron():
+    cfg = get_config()
+    # Calcular próxima ejecución
+    next_run = None
+    if cfg.get("cron_expr"):
+        try:
+            cron = croniter(cfg["cron_expr"])
+            next_run = cron.get_next(float)
+            from datetime import timezone as tz
+            next_run = datetime.fromtimestamp(next_run, tz=timezone.utc).isoformat()
+        except Exception:
+            pass
+    return {**cfg, "next_run": next_run}
+
+
+@app.put("/api/cron", dependencies=[Depends(verify_api_key)], tags=["scheduler"])
+async def update_cron(body: CronConfigRequest):
+    # Validar expresión cron
+    if body.cron_expr:
+        try:
+            croniter(body.cron_expr)
+        except (CroniterBadCronError, ValueError) as e:
+            raise HTTPException(status_code=422, detail=f"Expresión cron inválida: {e}")
+
+    save_config({"cron_expr": body.cron_expr, "max_pages": body.max_pages})
+
+    # Reagendar en caliente
+    from apscheduler.triggers.cron import CronTrigger
+    from scheduler import get_scheduler
+    scheduler = get_scheduler()
+    if body.cron_expr:
+        scheduler.reschedule_job(
+            "scraper_cron",
+            trigger=CronTrigger.from_crontab(body.cron_expr, timezone="Europe/Madrid"),
+        )
+        logger.info("[Cron] Reagendado: %s", body.cron_expr)
+    else:
+        # Expresión vacía = desactivar
+        scheduler.pause_job("scraper_cron")
+        logger.info("[Cron] Job pausado (sin expresión)")
+
+    return {"status": "actualizado", "cron_expr": body.cron_expr, "max_pages": body.max_pages}
+
+
+# ── Sesión Milanuncios ────────────────────────────────────────────────────────
+
+@app.post("/api/session/renew", dependencies=[Depends(verify_api_key)], tags=["sesion"])
+async def session_renew():
+    status = read_status()
+    if status.get("state") == "running":
+        raise HTTPException(status_code=409, detail="Debes detener el scraper antes de renovar la sesión")
+
+    launched = await launch_session_renewal()
+    if not launched:
+        raise HTTPException(status_code=409, detail="La renovación de sesión ya está en curso")
+    return {"status": "iniciado", "message": "save_session.py abierto — interactúa con Chrome para completar el login"}
+
+
+@app.get("/api/session/status", dependencies=[Depends(verify_api_key)], tags=["sesion"])
+async def session_status():
+    return read_session_status()
+
+
+# ── Webflow ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/webflow/sync", dependencies=[Depends(verify_api_key)], tags=["webflow"])
+async def webflow_sync():
+    from integrations.webflow_sync import sync_pending_listings
+    asyncio.create_task(sync_pending_listings())
+    return {"status": "sync_iniciado"}
+
+
+@app.get("/api/webflow/status", dependencies=[Depends(verify_api_key)], tags=["webflow"])
+async def webflow_status(conn: sqlite3.Connection = Depends(get_db)):
+    total = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+    synced = conn.execute(
+        "SELECT COUNT(*) FROM listings WHERE webflow_item_id IS NOT NULL"
+    ).fetchone()[0]
+    last_sync = conn.execute(
+        "SELECT MAX(webflow_synced_at) FROM listings WHERE webflow_synced_at IS NOT NULL"
+    ).fetchone()[0]
+    return {
+        "total": total,
+        "synced": synced,
+        "pending": total - synced,
+        "last_sync_at": last_sync,
+    }
