@@ -235,7 +235,12 @@ async def _monitor_session_proc(proc: asyncio.subprocess.Process) -> None:
         sess = read_session_status()
         if "[LOGIN_WAITING]" in line:
             sess["waiting_for_login"] = True
-        elif "Login detectado" in line or "Sesion guardada" in line:
+        elif "Login detectado" in line or "login detectado" in line.lower():
+            sess["waiting_for_login"] = False
+            sess["login_detected"] = True
+        elif "Navegando a naves" in line or "naves industriales" in line.lower():
+            sess["navigating"] = True
+        elif "Sesion guardada" in line or "sesion guardada" in line.lower():
             sess["waiting_for_login"] = False
         _write_session_status(sess)
     log_handler.close()
@@ -245,6 +250,8 @@ async def _monitor_session_proc(proc: asyncio.subprocess.Process) -> None:
     sess["state"] = "idle" if rc == 0 else "error"
     sess["finished_at"] = _now()
     sess["waiting_for_login"] = False
+    sess["login_detected"] = False
+    sess["navigating"] = False
     if rc != 0:
         sess["last_error"] = f"save_session.py terminó con código {rc}"
     _write_session_status(sess)

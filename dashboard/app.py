@@ -129,9 +129,20 @@ def mostrar_alerta_sesion():
 
     if sess_state == "running":
         # Renovacion en curso — mostrar instrucciones segun sub-estado
-        if sess.get("waiting_for_login"):
+        if sess.get("navigating"):
+            st.info(
+                "**Guardando sesion — casi listo**\n\n"
+                "Login detectado correctamente. Se esta registrando la sesion. "
+                "Chrome se cerrara automaticamente en unos segundos."
+            )
+        elif sess.get("login_detected"):
+            st.info(
+                "**Login detectado — completando proceso...**\n\n"
+                "Has iniciado sesion. Espera unos segundos mientras se completa el registro."
+            )
+        elif sess.get("waiting_for_login"):
             st.warning(
-                "**Chrome esta abierto — inicia sesion ahora**\n\n"
+                "**Chrome esta abierto — accion requerida**\n\n"
                 "Se ha abierto Chrome en este equipo. Por favor:\n\n"
                 "1. Busca la ventana de Chrome en la barra de tareas\n"
                 "2. Si aparece un captcha, resuelvelo primero\n"
@@ -140,11 +151,12 @@ def mostrar_alerta_sesion():
             )
         else:
             st.info(
-                "**Renovacion de sesion en curso...**\n\n"
-                "Chrome se esta iniciando. En unos segundos aparecera la ventana para que inicies sesion."
+                "**Iniciando Chrome...**\n\n"
+                "En unos segundos aparecera la ventana del navegador para que inicies sesion."
             )
-        if st.button("Actualizar estado de la sesion"):
-            st.rerun()
+        # Auto-refresh cada 3 segundos mientras la renovacion esta activa
+        time.sleep(3)
+        st.rerun()
     else:
         # Sesion bloqueada, boton para iniciar renovacion
         st.error(
@@ -315,19 +327,40 @@ def page_control():
     sess_state = sess.get("state", "idle")
 
     if sess_state == "running":
-        st.info(
-            "La renovacion esta en curso. "
-            "Ve al escritorio del servidor y completa el acceso a Milanuncios."
-        )
-        if st.button("Actualizar estado"):
-            st.rerun()
+        if sess.get("navigating"):
+            st.info(
+                "**Guardando sesion — casi listo**\n\n"
+                "Login detectado. Se esta registrando la sesion. "
+                "Chrome se cerrara automaticamente en unos segundos."
+            )
+        elif sess.get("login_detected"):
+            st.info(
+                "**Login detectado — completando proceso...**\n\n"
+                "Espera unos segundos mientras se completa el registro."
+            )
+        elif sess.get("waiting_for_login"):
+            st.warning(
+                "**Chrome esta abierto — accion requerida**\n\n"
+                "1. Busca la ventana de Chrome en la barra de tareas\n"
+                "2. Si aparece un captcha, resuelvelo primero\n"
+                "3. Inicia sesion con tu cuenta de Milanuncios\n"
+                "4. Navega a **Mis Anuncios** — la sesion se guardara automaticamente"
+            )
+        else:
+            st.info(
+                "**Iniciando Chrome...**\n\n"
+                "En unos segundos aparecera la ventana del navegador para que inicies sesion."
+            )
+        # Auto-refresh cada 3 segundos mientras la renovacion esta activa
+        time.sleep(3)
+        st.rerun()
     else:
         if sess.get("finished_at"):
             st.caption(f"Ultima renovacion: {fmt_dt(sess['finished_at'])}")
             if sess_state == "error":
                 st.error(f"El ultimo intento fallo: {sess.get('last_error', '')}")
             else:
-                st.success("La ultima renovacion se completo correctamente")
+                st.success("Sesion renovada correctamente. El scraper puede volver a ejecutarse.")
         else:
             st.caption("Sin renovaciones previas")
 
