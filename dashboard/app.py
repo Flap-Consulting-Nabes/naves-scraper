@@ -223,6 +223,22 @@ def page_resumen():
             )
         elif state == "error":
             st.error(f"Error: {sc.get('last_error', 'desconocido')}")
+        elif state == "stopped":
+            st.warning("Detenido manualmente")
+        elif sc.get("finished_at"):
+            total_new = sc.get("total_new", 0)
+            total_skipped = sc.get("total_skipped", 0)
+            if total_new == 0 and total_skipped > 0:
+                st.info(
+                    f"Ultima ejecucion: sin anuncios nuevos  \n"
+                    f"Los {total_skipped} anuncio(s) ya estaban en la base de datos."
+                )
+            elif total_new > 0:
+                st.success(
+                    f"Ultima ejecucion: **{total_new}** nuevos | **{total_skipped}** omitidos"
+                )
+            else:
+                st.success("Inactivo y listo para ejecutar")
         else:
             st.success("Inactivo y listo para ejecutar")
 
@@ -271,8 +287,26 @@ def page_control():
         )
     elif state == "error":
         st.error(f"Estado: **{estado_texto}** — {status.get('last_error', '')}")
+    elif state == "stopped":
+        st.warning(f"Estado: **{estado_texto}** — El scraper fue detenido manualmente.")
+    elif status.get("finished_at"):
+        total_new = status.get("total_new", 0)
+        total_skipped = status.get("total_skipped", 0)
+        if total_new == 0 and total_skipped > 0:
+            st.info(
+                f"Estado: **{estado_texto}** — Ultima ejecucion completada\n\n"
+                f"No se encontraron anuncios nuevos. Los {total_skipped} anuncio(s) "
+                f"consultados ya estaban en la base de datos."
+            )
+        elif total_new > 0:
+            st.success(
+                f"Estado: **{estado_texto}** — Ultima ejecucion completada\n\n"
+                f"Nuevos insertados: **{total_new}** | Duplicados omitidos: **{total_skipped}**"
+            )
+        else:
+            st.success(f"Estado: **{estado_texto}**")
     else:
-        st.success(f"Estado: **{estado_texto}**")
+        st.success(f"Estado: **{estado_texto}** — Listo para ejecutar")
 
     if status.get("started_at"):
         st.caption(f"Inicio: {fmt_dt(status['started_at'])}  |  Fin: {fmt_dt(status.get('finished_at'))}")

@@ -158,12 +158,12 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
                 status["current_page"] = int(m.group(1))
         elif "Nuevos insertados" in line:
             import re
-            m = re.search(r"(\d+)", line)
+            m = re.search(r"(\d+)\s*$", line)  # último número (evita capturar timestamp)
             if m:
                 status["total_new"] = int(m.group(1))
         elif "Duplicados" in line or "saltados" in line.lower():
             import re
-            m = re.search(r"(\d+)", line)
+            m = re.search(r"(\d+)\s*$", line)  # último número (evita capturar timestamp)
             if m:
                 status["total_skipped"] = int(m.group(1))
         elif "[CAPTCHA_REQUIRED]" in line or "[CAPTCHA_WAITING]" in line:
