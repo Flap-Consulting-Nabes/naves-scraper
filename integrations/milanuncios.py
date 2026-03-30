@@ -134,7 +134,27 @@ async def _warmup(browser: uc.Browser) -> None:
     # Paso 1: homepage — deja que los scripts anti-bot corran
     logger.info("Warm-up paso 1/3: homepage...")
     page = await browser.get(BASE_URL)
-    await asyncio.sleep(random.uniform(3.0, 5.0))
+    try:
+        await page.wait_for_ready_state(until="complete")
+    except Exception:
+        await asyncio.sleep(5)
+
+    # Verificar URL real — page.url devuelve la URL solicitada, no la cargada
+    for attempt in range(3):
+        try:
+            actual_url = await page.evaluate("window.location.href") or ""
+            if actual_url and "about:blank" not in actual_url:
+                break
+        except Exception:
+            actual_url = ""
+        logger.info("Warm-up: reintentando navegación a %s (intento %d/3)...", BASE_URL, attempt + 1)
+        await page.get(BASE_URL)
+        try:
+            await page.wait_for_ready_state(until="complete")
+        except Exception:
+            await asyncio.sleep(5)
+
+    await asyncio.sleep(random.uniform(2.0, 4.0))
     title = await page.evaluate("document.title") or ""
 
     if "pardon" in title.lower():
