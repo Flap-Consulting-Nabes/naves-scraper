@@ -447,14 +447,11 @@ bash install.sh</pre>
           <div class="code-block" style="border-color: rgba(108,99,255,0.3);">
             <div class="code-header" style="border-color: rgba(108,99,255,0.2);">
               <span class="code-label">terminal — background, sobrevive al cierre del terminal</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
+              <button class="copy-btn" onclick="copyCode(this, 'bash start.sh')">
                 <span class="material-symbols-outlined">content_copy</span>Copiar
               </button>
             </div>
-            <pre>nohup bash run_api.sh > logs/api.log 2>&1 &
-echo $! > logs/api.pid
-nohup bash run_dashboard.sh > logs/dashboard.log 2>&1 &
-echo $! > logs/dashboard.pid</pre>
+            <pre>bash start.sh</pre>
           </div>
           <div class="alert success">
             <span class="material-symbols-outlined">check_circle</span>
@@ -577,20 +574,41 @@ echo $! > logs/dashboard.pid</pre>
             <span class="material-symbols-outlined" style="font-size:14px;">stop_circle</span>
           </div>
           <div class="step-meta">
-            <div class="step-title">Parar los servicios</div>
-            <div class="step-desc">Si arrancaste en background con nohup</div>
+            <div class="step-title">Parar / reiniciar los servicios</div>
+            <div class="step-desc">Detener API y dashboard o reiniciarlos con un solo comando</div>
           </div>
           <span class="material-symbols-outlined step-chevron">expand_more</span>
         </div>
         <div class="step-body">
+          <p>Detener:</p>
           <div class="code-block">
             <div class="code-header">
               <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
+              <button class="copy-btn" onclick="copyCode(this, 'bash stop.sh')">
                 <span class="material-symbols-outlined">content_copy</span>Copiar
               </button>
             </div>
-            <pre>kill $(cat logs/api.pid) $(cat logs/dashboard.pid)</pre>
+            <pre>bash stop.sh</pre>
+          </div>
+          <p>Reiniciar (detiene y vuelve a arrancar):</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">terminal</span>
+              <button class="copy-btn" onclick="copyCode(this, 'bash restart.sh')">
+                <span class="material-symbols-outlined">content_copy</span>Copiar
+              </button>
+            </div>
+            <pre>bash restart.sh</pre>
+          </div>
+          <p>Iniciar de nuevo tras haber parado:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">terminal</span>
+              <button class="copy-btn" onclick="copyCode(this, 'bash start.sh')">
+                <span class="material-symbols-outlined">content_copy</span>Copiar
+              </button>
+            </div>
+            <pre>bash start.sh</pre>
           </div>
         </div>
       </div>
@@ -615,7 +633,7 @@ echo $! > logs/dashboard.pid</pre>
               </button>
             </div>
             <pre>tail -f logs/api.log
-tail -f scraper.log</pre>
+tail -f logs/scraper.log</pre>
           </div>
           <div class="alert warning">
             <span class="material-symbols-outlined">warning</span>
