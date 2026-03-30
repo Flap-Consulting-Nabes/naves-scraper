@@ -137,4 +137,5 @@ API_BASE_URL=http://localhost:8000
 - **Never delete `chrome_profile/`** — it contains accumulated anti-bot trust
 - **`DISPLAY` env var** must be set on Linux for headful Chrome (handled by `run_api.sh`)
 - Incremental mode stops pagination on first duplicate (assumes listings sorted by date)
-- `init_milanuncios.md` contains detailed setup notes and lessons from previous projects
+- `docs/init_milanuncios.md` contains detailed setup notes and lessons from previous projects
+- `docs/plans/` contains historical planning documents (webflow, captcha, images, notifications, 409 fixes)
