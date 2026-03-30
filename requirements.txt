@@ -1,5 +1,5 @@
 # Scraper core
-zendriver>=0.15.0
+zendriver>=0.15.3
 beautifulsoup4>=4.12.3
 tenacity>=8.3.0
 python-dotenv>=1.0.1

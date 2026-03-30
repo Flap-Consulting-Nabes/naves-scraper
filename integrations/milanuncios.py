@@ -118,7 +118,6 @@ async def _start_browser() -> uc.Browser:
             "--disable-features=IsolateOrigins,site-per-process",
             f"--window-size={_w},{_h}",
             "--start-maximized",
-            "--lang=es-ES",
         ],
     )
     logger.info(f"Browser iniciado ({_w}x{_h}) con perfil persistente: {PROFILE_DIR}")

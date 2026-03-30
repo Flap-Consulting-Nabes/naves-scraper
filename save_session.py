@@ -69,22 +69,38 @@ async def main() -> None:
     logger.info(f"Usando perfil Chrome persistente: {PROFILE_DIR}")
     logger.info("Iniciando Chrome para login manual...")
 
-    # Añadir --no-sandbox solo si corre como root (necesario en Docker/root)
-    browser_args = [
-        "--disable-blink-features=AutomationControlled",
-        "--restore-last-session=false",
-        "--no-restore-last-session",
-    ]
-    if os.getuid() == 0:
-        browser_args.insert(0, "--no-sandbox")
-
     browser = await uc.start(
         headless=False,
         user_data_dir=PROFILE_DIR,
-        browser_args=browser_args,
+        browser_args=[
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-features=IsolateOrigins,site-per-process",
+        ],
     )
 
     page = await browser.get(TARGET_URL)
+    try:
+        await page.wait_for_ready_state(until="complete")
+    except Exception:
+        await asyncio.sleep(5)
+
+    # Reintentar si Chrome quedó en about:blank — usar evaluate() para la URL real
+    # (page.url devuelve la URL solicitada, no la cargada realmente)
+    for attempt in range(3):
+        try:
+            actual_url = await page.evaluate("window.location.href") or ""
+            if actual_url and "about:blank" not in actual_url:
+                break
+        except Exception:
+            actual_url = ""
+        logger.info("Reintentando navegación a %s (intento %d/3)...", TARGET_URL, attempt + 1)
+        await page.get(TARGET_URL)
+        try:
+            await page.wait_for_ready_state(until="complete")
+        except Exception:
+            await asyncio.sleep(5)
+
     logger.info(f"Página cargada: {TARGET_URL}")
     print("=====================================================================")
     print("INFO: Chrome abierto. INSTRUCCIONES:")
