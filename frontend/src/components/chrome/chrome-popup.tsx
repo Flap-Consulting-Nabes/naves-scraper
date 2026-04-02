@@ -62,19 +62,18 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
       <DialogContent
         style={{
           position: "fixed",
-          inset: 0,
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          maxWidth: "100vw",
-          transform: "none",
-          borderRadius: 0,
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "90vw",
+          height: "90vh",
+          maxWidth: "90vw",
+          borderRadius: "0.75rem",
         }}
-        className="z-50 flex flex-col gap-0 border-0 ring-0 p-0"
+        className="z-50 flex flex-col gap-0 border shadow-2xl ring-1 ring-black/10 p-0 overflow-hidden"
         showCloseButton={false}
       >
-        <div className="flex items-center justify-between border-b bg-background px-4 py-2">
+        <div className="flex items-center justify-between border-b bg-background px-4 py-2 rounded-t-xl">
           <div className="flex items-center gap-2">
             <Monitor className="size-4" />
             <DialogTitle>Chrome remoto</DialogTitle>
@@ -96,7 +95,7 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden bg-[#1a1a1a]" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-hidden bg-[#1a1a1a] rounded-b-xl" style={{ minHeight: 0 }}>
           {error ? (
             <div className="flex items-center justify-center h-full p-4 text-sm text-destructive">
               {error}
