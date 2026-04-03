@@ -1,14 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import type { VncScreenHandle } from "react-vnc";
-import { Monitor } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Monitor, X } from "lucide-react";
 
 const VncScreen = dynamic(
   () => import("react-vnc").then((mod) => mod.VncScreen),
@@ -24,7 +20,9 @@ interface ChromePopupProps {
 export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dims, setDims] = useState({ w: 0, h: 0 });
   const vncRef = useRef<VncScreenHandle | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const wsUrl = typeof window !== "undefined"
     ? `ws://${window.location.hostname}:${wsPort}`
@@ -40,63 +38,153 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
   }, []);
 
   const handleError = useCallback(() => {
-    setError("No se pudo conectar al panel Chrome. Verifica que x11vnc y websockify estan activos.");
+    setError("Could not connect to Chrome panel. Verify x11vnc and websockify are running.");
     setConnected(false);
   }, []);
 
-  const handleOpenChange = useCallback((nextOpen: boolean) => {
-    if (!nextOpen) {
-      try {
-        vncRef.current?.disconnect();
-      } catch {
-        // ignore
-      }
-      setConnected(false);
-      setError(null);
+  const handleClose = useCallback(() => {
+    try {
+      vncRef.current?.disconnect();
+    } catch {
+      // ignore
     }
-    onOpenChange(nextOpen);
+    setConnected(false);
+    setError(null);
+    onOpenChange(false);
   }, [onOpenChange]);
 
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="!fixed !top-1/2 !left-1/2 !-translate-x-1/2 !-translate-y-1/2 !w-[95vw] !h-[95vh] !max-w-[95vw] z-50 flex flex-col gap-0 border shadow-2xl ring-1 ring-black/10 p-0 overflow-hidden rounded-xl bg-popover"
-        showCloseButton={false}
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, handleClose]);
+
+  useEffect(() => {
+    if (!open) {
+      setDims({ w: 0, h: 0 });
+      return;
+    }
+    const el = containerRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setDims({ w: Math.floor(width), h: Math.floor(height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <>
+      {/* Backdrop — 100% inline styles */}
+      <div
+        onClick={handleClose}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9998,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          backdropFilter: "blur(2px)",
+        }}
+      />
+
+      {/* Popup — 100% inline styles for positioning */}
+      <div
+        style={{
+          position: "fixed",
+          zIndex: 9999,
+          top: "2.5vh",
+          left: "2.5vw",
+          width: "95vw",
+          height: "95vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderRadius: "12px",
+          border: "1px solid rgba(0, 0, 0, 0.1)",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          backgroundColor: "var(--popover, #fff)",
+        }}
       >
-        <div className="flex items-center justify-between border-b bg-background px-4 py-2 rounded-t-xl">
-          <div className="flex items-center gap-2">
-            <Monitor className="size-4" />
-            <DialogTitle>Chrome remoto</DialogTitle>
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 16px",
+            borderBottom: "1px solid rgba(0, 0, 0, 0.1)",
+            backgroundColor: "var(--background, #fff)",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Monitor style={{ width: 16, height: 16 }} />
+            <span style={{ fontSize: "16px", fontWeight: 500 }}>Chrome remoto</span>
             {connected && (
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">
-                conectado
-              </span>
+              <span style={{ fontSize: "12px", color: "#059669" }}>connected</span>
             )}
           </div>
           <button
-            onClick={() => handleOpenChange(false)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            onClick={handleClose}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "6px",
+              borderRadius: "6px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "inherit",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.05)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-            <span className="sr-only">Cerrar</span>
+            <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden bg-[#1a1a1a] rounded-b-xl" style={{ minHeight: 0 }}>
+        {/* VNC area */}
+        <div
+          ref={containerRef}
+          style={{
+            flex: 1,
+            overflow: "hidden",
+            backgroundColor: "#1a1a1a",
+            minHeight: 0,
+          }}
+        >
           {error ? (
-            <div className="flex items-center justify-center h-full p-4 text-sm text-destructive">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                padding: "16px",
+                fontSize: "14px",
+                color: "#ef4444",
+              }}
+            >
               {error}
             </div>
           ) : (
-            open && wsUrl && (
+            wsUrl && dims.w > 0 && dims.h > 0 && (
               <VncScreen
                 url={wsUrl}
                 scaleViewport
                 background="#1a1a1a"
-                style={{ width: "100%", height: "100%" }}
+                style={{ width: `${dims.w}px`, height: `${dims.h}px` }}
                 onConnect={handleConnect}
                 onDisconnect={handleDisconnect}
                 onSecurityFailure={handleError}
@@ -105,7 +193,8 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
             )
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>,
+    document.body
   );
 }
