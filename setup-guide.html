@@ -1,470 +1,470 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Naves Scraper — Guía de Instalación</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Naves Scraper — Guía de Instalación</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg: #08081a;
-      --surface: rgba(255,255,255,0.04);
-      --surface-hover: rgba(255,255,255,0.07);
-      --border: rgba(255,255,255,0.08);
-      --border-hover: rgba(255,255,255,0.16);
-      --text: #e8e8f0;
-      --text-muted: #8888a8;
-      --accent: #6c63ff;
-      --accent-dim: rgba(108,99,255,0.15);
-      --green: #22d37e;
-      --green-dim: rgba(34,211,126,0.12);
-      --amber: #f59e0b;
-      --amber-dim: rgba(245,158,11,0.12);
-      --red: #f87171;
-      --red-dim: rgba(248,113,113,0.12);
-      --code-bg: #0d0d24;
-    }
+  :root {
+    --bg: #08081a;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.16);
+    --text: #e8e8f0;
+    --text-muted: #8888a8;
+    --accent: #6c63ff;
+    --accent-dim: rgba(108,99,255,0.15);
+    --green: #22d37e;
+    --green-dim: rgba(34,211,126,0.12);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.12);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.12);
+    --code-bg: #0d0d24;
+  }
 
-    html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      font-size: 15px;
-      line-height: 1.65;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.65;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-    /* ── Orbs ── */
-    .orb {
-      position: fixed; border-radius: 50%;
-      filter: blur(120px); pointer-events: none; z-index: 0;
-    }
-    .orb-1 { width: 600px; height: 600px; background: rgba(108,99,255,0.10); top: -200px; right: -150px; }
-    .orb-2 { width: 500px; height: 500px; background: rgba(34,211,126,0.06); bottom: -150px; left: -100px; }
+  /* ── Orbs ── */
+  .orb {
+    position: fixed; border-radius: 50%;
+    filter: blur(120px); pointer-events: none; z-index: 0;
+  }
+  .orb-1 { width: 600px; height: 600px; background: rgba(108,99,255,0.10); top: -200px; right: -150px; }
+  .orb-2 { width: 500px; height: 500px; background: rgba(34,211,126,0.06); bottom: -150px; left: -100px; }
 
-    /* ── Layout ── */
-    .page { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+  /* ── Layout ── */
+  .page { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
 
-    /* ── Material Symbols ── */
-    .material-symbols-outlined {
-      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
-      font-size: 18px; line-height: 1; vertical-align: middle; user-select: none;
-    }
+  /* ── Material Symbols ── */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+    font-size: 18px; line-height: 1; vertical-align: middle; user-select: none;
+  }
 
-    /* ── Header ── */
-    header { margin-bottom: 48px; }
-    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-    .logo-icon {
-      width: 38px; height: 38px;
-      background: linear-gradient(135deg, var(--accent), #9b8fff);
-      border-radius: 10px; display: flex; align-items: center; justify-content: center;
-    }
-    .logo-icon .material-symbols-outlined { font-size: 20px; color: #fff; }
-    .logo-name { font-size: 16px; font-weight: 600; color: #fff; }
-    .logo-name span { color: var(--text-muted); font-weight: 400; }
+  /* ── Header ── */
+  header { margin-bottom: 48px; }
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), #9b8fff);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon .material-symbols-outlined { font-size: 20px; color: #fff; }
+  .logo-name { font-size: 16px; font-weight: 600; color: #fff; }
+  .logo-name span { color: var(--text-muted); font-weight: 400; }
 
-    header h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; color: #fff; line-height: 1.2; margin-bottom: 8px; }
-    header p { color: var(--text-muted); font-size: 14px; max-width: 500px; }
+  header h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; color: #fff; line-height: 1.2; margin-bottom: 8px; }
+  header p { color: var(--text-muted); font-size: 14px; max-width: 500px; }
 
-    .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
-      background: var(--accent-dim); color: #a99fff; border: 1px solid rgba(108,99,255,0.25);
-    }
-    .badge .material-symbols-outlined { font-size: 13px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    background: var(--accent-dim); color: #a99fff; border: 1px solid rgba(108,99,255,0.25);
+  }
+  .badge .material-symbols-outlined { font-size: 13px; }
 
-    /* ── Section title ── */
-    .section-title {
-      font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--text-muted);
-      margin: 40px 0 14px;
-    }
+  /* ── Section title ── */
+  .section-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin: 40px 0 14px;
+  }
 
-    /* ── Inline code ── */
-    code {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px; background: rgba(255,255,255,0.07); color: #c9c5ff;
-      padding: 1px 6px; border-radius: 4px;
-    }
+  /* ── Inline code ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; background: rgba(255,255,255,0.07); color: #c9c5ff;
+    padding: 1px 6px; border-radius: 4px;
+  }
 
-    /* ── Alerts ── */
-    .alert {
-      display: flex; gap: 10px; align-items: flex-start;
-      padding: 11px 13px; border-radius: 10px;
-      font-size: 13px; line-height: 1.5; margin-bottom: 12px;
-    }
-    .alert .material-symbols-outlined { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
-    .alert.info    { background: var(--accent-dim); border: 1px solid rgba(108,99,255,0.2); color: #c4bfff; }
-    .alert.info    .material-symbols-outlined { color: #9b8fff; }
-    .alert.warning { background: var(--amber-dim);  border: 1px solid rgba(245,158,11,0.2);  color: #fcd97a; }
-    .alert.warning .material-symbols-outlined { color: var(--amber); }
-    .alert.success { background: var(--green-dim);  border: 1px solid rgba(34,211,126,0.2);  color: #86efb4; }
-    .alert.success .material-symbols-outlined { color: var(--green); }
+  /* ── Alerts ── */
+  .alert {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 11px 13px; border-radius: 10px;
+    font-size: 13px; line-height: 1.5; margin-bottom: 12px;
+  }
+  .alert .material-symbols-outlined { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+  .alert.info    { background: var(--accent-dim); border: 1px solid rgba(108,99,255,0.2); color: #c4bfff; }
+  .alert.info    .material-symbols-outlined { color: #9b8fff; }
+  .alert.warning { background: var(--amber-dim);  border: 1px solid rgba(245,158,11,0.2);  color: #fcd97a; }
+  .alert.warning .material-symbols-outlined { color: var(--amber); }
+  .alert.success { background: var(--green-dim);  border: 1px solid rgba(34,211,126,0.2);  color: #86efb4; }
+  .alert.success .material-symbols-outlined { color: var(--green); }
 
-    /* ── Code block — header layout ── */
-    .code-block {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 12px;
-      overflow: hidden;
-    }
-    .code-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 6px 0 14px;
-      border-bottom: 1px solid var(--border);
-      min-height: 36px; gap: 8px;
-    }
-    .code-label {
-      font-size: 11px; font-weight: 500;
-      color: var(--text-muted); font-family: 'JetBrains Mono', monospace;
-      letter-spacing: 0.04em; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
-    }
-    .copy-btn {
-      display: flex; align-items: center; gap: 4px; flex-shrink: 0;
-      padding: 4px 10px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid var(--border); border-radius: 6px;
-      cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-muted);
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-      font-family: 'Inter', sans-serif;
-    }
-    .copy-btn:hover { background: rgba(255,255,255,0.11); color: var(--text); border-color: var(--border-hover); }
-    .copy-btn.copied { color: var(--green); border-color: rgba(34,211,126,0.3); background: var(--green-dim); }
-    .copy-btn .material-symbols-outlined { font-size: 13px; }
+  /* ── Code block — header layout ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6px 0 14px;
+    border-bottom: 1px solid var(--border);
+    min-height: 36px; gap: 8px;
+  }
+  .code-label {
+    font-size: 11px; font-weight: 500;
+    color: var(--text-muted); font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .copy-btn {
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-muted);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    font-family: 'Inter', sans-serif;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.11); color: var(--text); border-color: var(--border-hover); }
+  .copy-btn.copied { color: var(--green); border-color: rgba(34,211,126,0.3); background: var(--green-dim); }
+  .copy-btn .material-symbols-outlined { font-size: 13px; }
 
-    .code-block pre {
-      padding: 12px 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px; line-height: 1.7; color: #c9c5ff;
-      overflow-x: auto; white-space: pre;
-      /* thin, subtle scrollbar */
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.12) transparent;
-    }
-    .code-block pre::-webkit-scrollbar { height: 4px; }
-    .code-block pre::-webkit-scrollbar-track { background: transparent; }
-    .code-block pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 2px; }
+  .code-block pre {
+    padding: 12px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.7; color: #c9c5ff;
+    overflow-x: auto; white-space: pre;
+    /* thin, subtle scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .code-block pre::-webkit-scrollbar { height: 4px; }
+  .code-block pre::-webkit-scrollbar-track { background: transparent; }
+  .code-block pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 2px; }
 
-    /* ── Checklist ── */
-    .checklist { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 12px 0; }
-    .checklist li { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; color: var(--text-muted); }
-    .checklist li .material-symbols-outlined { font-size: 16px; color: var(--green); flex-shrink: 0; margin-top: 2px; }
+  /* ── Checklist ── */
+  .checklist { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 12px 0; }
+  .checklist li { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; color: var(--text-muted); }
+  .checklist li .material-symbols-outlined { font-size: 16px; color: var(--green); flex-shrink: 0; margin-top: 2px; }
 
-    /* ── Flow (main install steps) ── */
-    .flow { display: flex; flex-direction: column; }
+  /* ── Flow (main install steps) ── */
+  .flow { display: flex; flex-direction: column; }
 
-    .flow-step { display: flex; gap: 0; position: relative; }
+  .flow-step { display: flex; gap: 0; position: relative; }
 
-    /* vertical connector */
-    .flow-step:not(:last-child) .flow-spine::after {
-      content: '';
-      position: absolute; left: 50%; top: 44px; bottom: 0;
-      width: 1px; background: var(--border);
-      transform: translateX(-50%);
-    }
+  /* vertical connector */
+  .flow-step:not(:last-child) .flow-spine::after {
+    content: '';
+    position: absolute; left: 50%; top: 44px; bottom: 0;
+    width: 1px; background: var(--border);
+    transform: translateX(-50%);
+  }
 
-    .flow-spine {
-      width: 52px; min-width: 52px;
-      display: flex; flex-direction: column; align-items: center;
-      padding-top: 16px; position: relative;
-    }
+  .flow-spine {
+    width: 52px; min-width: 52px;
+    display: flex; flex-direction: column; align-items: center;
+    padding-top: 16px; position: relative;
+  }
 
-    .flow-num {
-      width: 28px; height: 28px;
-      border-radius: 8px;
-      background: var(--accent-dim);
-      border: 1px solid rgba(108,99,255,0.3);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; color: #a99fff;
-      position: relative; z-index: 1;
-      flex-shrink: 0;
-    }
-    .flow-num.primary {
-      background: var(--accent); border-color: var(--accent); color: #fff;
-      box-shadow: 0 0 18px rgba(108,99,255,0.4);
-    }
+  .flow-num {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(108,99,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #a99fff;
+    position: relative; z-index: 1;
+    flex-shrink: 0;
+  }
+  .flow-num.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    box-shadow: 0 0 18px rgba(108,99,255,0.4);
+  }
 
-    .flow-body {
-      flex: 1; padding: 14px 0 26px 8px; min-width: 0;
-    }
+  .flow-body {
+    flex: 1; padding: 14px 0 26px 8px; min-width: 0;
+  }
 
-    .flow-title {
-      font-size: 15px; font-weight: 600; color: #fff;
-      line-height: 1.3; margin-bottom: 3px;
-    }
-    .flow-title.primary { color: #d4cfff; }
-    .flow-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
-    .flow-note { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+  .flow-title {
+    font-size: 15px; font-weight: 600; color: #fff;
+    line-height: 1.3; margin-bottom: 3px;
+  }
+  .flow-title.primary { color: #d4cfff; }
+  .flow-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+  .flow-note { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
 
-    /* ── Expandable sections ── */
-    .steps { display: flex; flex-direction: column; gap: 8px; }
+  /* ── Expandable sections ── */
+  .steps { display: flex; flex-direction: column; gap: 8px; }
 
-    .step {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; overflow: hidden; transition: border-color 0.2s;
-    }
-    .step:hover { border-color: var(--border-hover); }
+  .step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; transition: border-color 0.2s;
+  }
+  .step:hover { border-color: var(--border-hover); }
 
-    .step-header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; cursor: pointer; user-select: none;
-    }
-    .step-icon {
-      width: 26px; height: 26px; min-width: 26px;
-      border-radius: 7px; background: var(--accent-dim);
-      border: 1px solid rgba(108,99,255,0.3);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .step-meta { flex: 1; }
-    .step-title { font-size: 14px; font-weight: 600; color: #fff; line-height: 1.3; margin-bottom: 1px; }
-    .step-desc { font-size: 12px; color: var(--text-muted); }
-    .step-chevron { color: var(--text-muted); transition: transform 0.25s; margin-left: auto; flex-shrink: 0; }
-    .step.open .step-chevron { transform: rotate(180deg); }
+  .step-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; cursor: pointer; user-select: none;
+  }
+  .step-icon {
+    width: 26px; height: 26px; min-width: 26px;
+    border-radius: 7px; background: var(--accent-dim);
+    border: 1px solid rgba(108,99,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-meta { flex: 1; }
+  .step-title { font-size: 14px; font-weight: 600; color: #fff; line-height: 1.3; margin-bottom: 1px; }
+  .step-desc { font-size: 12px; color: var(--text-muted); }
+  .step-chevron { color: var(--text-muted); transition: transform 0.25s; margin-left: auto; flex-shrink: 0; }
+  .step.open .step-chevron { transform: rotate(180deg); }
 
-    .step-body {
-      display: none; padding: 0 16px 16px;
-      border-top: 1px solid var(--border);
-    }
-    .step.open .step-body { display: block; }
-    .step-body > *:first-child { margin-top: 14px; }
-    .step-body p { color: var(--text-muted); font-size: 13px; margin-bottom: 10px; }
-    .step-body p:last-child { margin-bottom: 0; }
-    .step-body strong { color: var(--text); font-weight: 500; }
+  .step-body {
+    display: none; padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .step.open .step-body { display: block; }
+  .step-body > *:first-child { margin-top: 14px; }
+  .step-body p { color: var(--text-muted); font-size: 13px; margin-bottom: 10px; }
+  .step-body p:last-child { margin-bottom: 0; }
+  .step-body strong { color: var(--text); font-weight: 500; }
 
-    /* ── Env vars table ── */
-    .env-table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 13px; }
-    .env-table th {
-      text-align: left; padding: 7px 10px;
-      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--text-muted);
-      border-bottom: 1px solid var(--border);
-    }
-    .env-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
-    .env-table tr:last-child td { border-bottom: none; }
-    .env-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #c9c5ff; white-space: nowrap; }
-    .env-table td:last-child { color: var(--text-muted); }
-    .req-badge {
-      display: inline-block; padding: 1px 7px; border-radius: 4px;
-      font-size: 11px; font-weight: 600;
-      background: rgba(248,113,113,0.12); color: var(--red);
-      border: 1px solid rgba(248,113,113,0.2);
-    }
-    .opt-badge {
-      display: inline-block; padding: 1px 7px; border-radius: 4px;
-      font-size: 11px; font-weight: 600;
-      background: rgba(255,255,255,0.05); color: var(--text-muted);
-      border: 1px solid var(--border);
-    }
+  /* ── Env vars table ── */
+  .env-table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 13px; }
+  .env-table th {
+    text-align: left; padding: 7px 10px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .env-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+  .env-table tr:last-child td { border-bottom: none; }
+  .env-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #c9c5ff; white-space: nowrap; }
+  .env-table td:last-child { color: var(--text-muted); }
+  .req-badge {
+    display: inline-block; padding: 1px 7px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    background: rgba(248,113,113,0.12); color: var(--red);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+  .opt-badge {
+    display: inline-block; padding: 1px 7px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    background: rgba(255,255,255,0.05); color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
 
-    /* ── Footer ── */
-    footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--border); text-align: center; }
-    footer p { font-size: 13px; color: var(--text-muted); }
-    footer a { color: #9b8fff; text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
-  </style>
+  /* ── Footer ── */
+  footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--border); text-align: center; }
+  footer p { font-size: 13px; color: var(--text-muted); }
+  footer a { color: #9b8fff; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
 </head>
 <body>
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
 
-  <div class="page">
+<div class="page">
 
-    <!-- ── Header ── -->
-    <header>
-      <div class="logo">
-        <div class="logo-icon">
-          <span class="material-symbols-outlined">warehouse</span>
-        </div>
-        <div class="logo-name">Naves Scraper <span>/ Setup</span></div>
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <span class="material-symbols-outlined">warehouse</span>
       </div>
-      <h1>Guía de instalación</h1>
-      <p>Configura el scraper de naves industriales en menos de 10 minutos. Al finalizar tendrás el dashboard activo y el cron diario funcionando.</p>
-      <div class="badges">
-        <div class="badge"><span class="material-symbols-outlined">laptop_mac</span>macOS 12+</div>
-        <div class="badge"><span class="material-symbols-outlined">terminal</span>Ubuntu 22+</div>
-        <div class="badge"><span class="material-symbols-outlined">code</span>Python 3.11+</div>
-        <div class="badge"><span class="material-symbols-outlined">javascript</span>Node.js 20+</div>
-      </div>
-    </header>
+      <div class="logo-name">Naves Scraper <span>/ Setup</span></div>
+    </div>
+    <h1>Guía de instalación</h1>
+    <p>Configura el scraper de naves industriales en menos de 10 minutos. Al finalizar tendrás el dashboard activo y el cron diario funcionando.</p>
+    <div class="badges">
+      <div class="badge"><span class="material-symbols-outlined">laptop_mac</span>macOS 12+</div>
+      <div class="badge"><span class="material-symbols-outlined">terminal</span>Ubuntu 22+</div>
+      <div class="badge"><span class="material-symbols-outlined">code</span>Python 3.11+</div>
+      <div class="badge"><span class="material-symbols-outlined">javascript</span>Node.js 20+</div>
+    </div>
+  </header>
 
-    <!-- ── Prerequisites ── -->
-    <div class="section-title">Antes de empezar</div>
-    <ul class="checklist">
-      <li>
-        <span class="material-symbols-outlined">check_circle</span>
-        Cuenta en Webflow con acceso a la API — necesitarás el token y el Collection ID
-      </li>
-      <li>
-        <span class="material-symbols-outlined">check_circle</span>
-        Cuenta en MilAnuncios — para el login manual de sesión (solo la primera vez)
-      </li>
-      <li>
-        <span class="material-symbols-outlined">check_circle</span>
-        Node.js 20+ instalado — <code>node --version</code> debe mostrar v20 o superior
-      </li>
-      <li>
-        <span class="material-symbols-outlined">check_circle</span>
-        Conexión a internet activa — el instalador descarga todo lo necesario
-      </li>
-    </ul>
+  <!-- ── Prerequisites ── -->
+  <div class="section-title">Antes de empezar</div>
+  <ul class="checklist">
+    <li>
+      <span class="material-symbols-outlined">check_circle</span>
+      Cuenta en Webflow con acceso a la API — necesitarás el token y el Collection ID
+    </li>
+    <li>
+      <span class="material-symbols-outlined">check_circle</span>
+      Cuenta en MilAnuncios — para el login manual de sesión (solo la primera vez)
+    </li>
+    <li>
+      <span class="material-symbols-outlined">check_circle</span>
+      Node.js 20+ instalado — <code>node --version</code> debe mostrar v20 o superior
+    </li>
+    <li>
+      <span class="material-symbols-outlined">check_circle</span>
+      Conexión a internet activa — el instalador descarga todo lo necesario
+    </li>
+  </ul>
 
-    <!-- ── MAIN FLOW ── -->
-    <div class="section-title">Instalación completa — 4 pasos</div>
-    <div class="flow">
+  <!-- ── MAIN FLOW ── -->
+  <div class="section-title">Instalación completa — 4 pasos</div>
+  <div class="flow">
 
-      <!-- 1 · Dependencias -->
-      <div class="flow-step">
-        <div class="flow-spine"><div class="flow-num">1</div></div>
-        <div class="flow-body">
-          <div class="flow-title">Instalar Homebrew, git y Python</div>
-          <div class="flow-desc">macOS — ejecuta en orden, una sola vez</div>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal — instalar Homebrew</span>
-              <button class="copy-btn" onclick="copyCode(this, '/bin/bash -c &quot;$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)&quot;')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</pre>
+    <!-- 1 · Dependencias -->
+    <div class="flow-step">
+      <div class="flow-spine"><div class="flow-num">1</div></div>
+      <div class="flow-body">
+        <div class="flow-title">Instalar Homebrew, git y Python</div>
+        <div class="flow-desc">macOS — ejecuta en orden, una sola vez</div>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label">terminal — instalar Homebrew</span>
+            <button class="copy-btn" onclick="copyCode(this, '/bin/bash -c &quot;$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)&quot;')">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
           </div>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal — instalar git y Python 3.12</span>
-              <button class="copy-btn" onclick="copyCode(this, 'brew install git python@3.12')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>brew install git python@3.12</pre>
+          <pre>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</pre>
+        </div>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label">terminal — instalar git y Python 3.12</span>
+            <button class="copy-btn" onclick="copyCode(this, 'brew install git python@3.12')">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
           </div>
+          <pre>brew install git python@3.12</pre>
         </div>
       </div>
+    </div>
 
-      <!-- 2 · Clonar e instalar -->
-      <div class="flow-step">
-        <div class="flow-spine"><div class="flow-num">2</div></div>
-        <div class="flow-body">
-          <div class="flow-title">Clonar el repositorio e instalar</div>
-          <div class="flow-desc">El instalador configura todo: venv, dependencias y <code>.env</code></div>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>git clone https://github.com/AlejandroTechFlap/naves-scraper.git naves-scraper
+    <!-- 2 · Clonar e instalar -->
+    <div class="flow-step">
+      <div class="flow-spine"><div class="flow-num">2</div></div>
+      <div class="flow-body">
+        <div class="flow-title">Clonar el repositorio e instalar</div>
+        <div class="flow-desc">El instalador configura todo: venv, dependencias y <code>.env</code></div>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label">terminal</span>
+            <button class="copy-btn" onclick="copyFromPre(this)">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
+          </div>
+          <pre>git clone https://github.com/AlejandroTechFlap/naves-scraper.git naves-scraper
 cd naves-scraper
 bash install.sh</pre>
-          </div>
-          <div class="flow-note">Al terminar el script muestra el <code>API_SECRET_KEY</code> generado — guárdalo.</div>
         </div>
+        <div class="flow-note">Al terminar el script muestra el <code>API_SECRET_KEY</code> generado — guárdalo.</div>
       </div>
+    </div>
 
-      <!-- 3 · Credenciales -->
-      <div class="flow-step">
-        <div class="flow-spine"><div class="flow-num">3</div></div>
-        <div class="flow-body">
-          <div class="flow-title">Configurar credenciales y sesión</div>
-          <div class="flow-desc">Edita <code>.env</code> con tus claves y guarda las cookies de MilAnuncios</div>
+    <!-- 3 · Credenciales -->
+    <div class="flow-step">
+      <div class="flow-spine"><div class="flow-num">3</div></div>
+      <div class="flow-body">
+        <div class="flow-title">Configurar credenciales y sesión</div>
+        <div class="flow-desc">Edita <code>.env</code> con tus claves y guarda las cookies de MilAnuncios</div>
 
-          <div class="alert warning">
-            <span class="material-symbols-outlined">warning</span>
-            <span><code>.env</code> contiene secretos — nunca lo subas a Git. Ya está en <code>.gitignore</code>.</span>
+        <div class="alert warning">
+          <span class="material-symbols-outlined">warning</span>
+          <span><code>.env</code> contiene secretos — nunca lo subas a Git. Ya está en <code>.gitignore</code>.</span>
+        </div>
+
+        <p>El instalador crea el <code>.env</code> con valores por defecto. Solo necesitas rellenar los tres campos marcados como <strong>Requerida</strong>.</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label">paso 3a — abrir .env</span>
+            <button class="copy-btn" onclick="copyCode(this, 'nano .env')">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
           </div>
+          <pre>nano .env</pre>
+        </div>
 
-          <p>El instalador crea el <code>.env</code> con valores por defecto. Solo necesitas rellenar los tres campos marcados como <strong>Requerida</strong>.</p>
+        <table class="env-table">
+          <thead>
+            <tr><th>Variable</th><th>Tipo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>WEBFLOW_TOKEN</td>
+              <td><span class="req-badge">Requerida</span></td>
+              <td>Token de API de Webflow — perfil → API Access</td>
+            </tr>
+            <tr>
+              <td>WEBFLOW_COLLECTION_ID</td>
+              <td><span class="req-badge">Requerida</span></td>
+              <td>ID de la colección CMS de destino en Webflow</td>
+            </tr>
+            <tr>
+              <td>DASHBOARD_PASSWORD</td>
+              <td><span class="req-badge">Requerida</span></td>
+              <td>Contraseña de acceso al dashboard (http://localhost:3000)</td>
+            </tr>
+            <tr>
+              <td>API_SECRET_KEY</td>
+              <td><span class="opt-badge">Auto</span></td>
+              <td>Generada por <code>install.sh</code>. Para regenerar: <code>python -c "import secrets; print(secrets.token_hex(32))"</code></td>
+            </tr>
+            <tr>
+              <td>MAX_PAGES</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>Páginas a scrapear por ejecución. <code>0</code> = ilimitado</td>
+            </tr>
+            <tr>
+              <td>MIN_SURFACE_M2</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>Superficie mínima de las naves a guardar. Por defecto: <code>1000</code></td>
+            </tr>
+            <tr>
+              <td>DOWNLOAD_IMAGES</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>Descarga imágenes de los anuncios. <code>true</code> / <code>false</code>. Por defecto: <code>true</code></td>
+            </tr>
+            <tr>
+              <td>IMAGES_DIR</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>Carpeta local donde se guardan las imágenes. Por defecto: <code>images</code></td>
+            </tr>
+            <tr>
+              <td>DB_PATH</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>Ruta al archivo SQLite. Por defecto: <code>naves.db</code></td>
+            </tr>
+            <tr>
+              <td>API_BASE_URL</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>URL base de la API interna usada por el dashboard. Por defecto: <code>http://localhost:8000</code></td>
+            </tr>
+            <tr>
+              <td>PROXY_SERVER</td>
+              <td><span class="opt-badge">Opcional</span></td>
+              <td>Proxy HTTP para Chrome. Formato: <code>http://user:pass@host:port</code>. Desactivado si no se define.</td>
+            </tr>
+          </tbody>
+        </table>
 
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">paso 3a — abrir .env</span>
-              <button class="copy-btn" onclick="copyCode(this, 'nano .env')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>nano .env</pre>
+        <p>Plantilla completa del <code>.env</code> para copiar y pegar:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label">.env — plantilla completa</span>
+            <button class="copy-btn" onclick="copyFromPre(this)">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
           </div>
-
-          <table class="env-table">
-            <thead>
-              <tr><th>Variable</th><th>Tipo</th><th>Descripción</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>WEBFLOW_TOKEN</td>
-                <td><span class="req-badge">Requerida</span></td>
-                <td>Token de API de Webflow — perfil → API Access</td>
-              </tr>
-              <tr>
-                <td>WEBFLOW_COLLECTION_ID</td>
-                <td><span class="req-badge">Requerida</span></td>
-                <td>ID de la colección CMS de destino en Webflow</td>
-              </tr>
-              <tr>
-                <td>DASHBOARD_PASSWORD</td>
-                <td><span class="req-badge">Requerida</span></td>
-                <td>Contraseña de acceso al dashboard (http://localhost:3000)</td>
-              </tr>
-              <tr>
-                <td>API_SECRET_KEY</td>
-                <td><span class="opt-badge">Auto</span></td>
-                <td>Generada por <code>install.sh</code>. Para regenerar: <code>python -c "import secrets; print(secrets.token_hex(32))"</code></td>
-              </tr>
-              <tr>
-                <td>MAX_PAGES</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>Páginas a scrapear por ejecución. <code>0</code> = ilimitado</td>
-              </tr>
-              <tr>
-                <td>MIN_SURFACE_M2</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>Superficie mínima de las naves a guardar. Por defecto: <code>1000</code></td>
-              </tr>
-              <tr>
-                <td>DOWNLOAD_IMAGES</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>Descarga imágenes de los anuncios. <code>true</code> / <code>false</code>. Por defecto: <code>true</code></td>
-              </tr>
-              <tr>
-                <td>IMAGES_DIR</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>Carpeta local donde se guardan las imágenes. Por defecto: <code>images</code></td>
-              </tr>
-              <tr>
-                <td>DB_PATH</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>Ruta al archivo SQLite. Por defecto: <code>naves.db</code></td>
-              </tr>
-              <tr>
-                <td>API_BASE_URL</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>URL base de la API interna usada por el dashboard. Por defecto: <code>http://localhost:8000</code></td>
-              </tr>
-              <tr>
-                <td>PROXY_SERVER</td>
-                <td><span class="opt-badge">Opcional</span></td>
-                <td>Proxy HTTP para Chrome. Formato: <code>http://user:pass@host:port</code>. Desactivado si no se define.</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p>Plantilla completa del <code>.env</code> para copiar y pegar:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">.env — plantilla completa</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre># ── Scraper ────────────────────────────────────────────────────────────────
+          <pre># ── Scraper ────────────────────────────────────────────────────────────────
 DB_PATH=naves.db
 MAX_PAGES=0
 MIN_SURFACE_M2=1000
@@ -483,296 +483,74 @@ API_SECRET_KEY=
 # ── Dashboard ─────────────────────────────────────────────────────────────
 DASHBOARD_PASSWORD=cambia_esta_contrasena
 API_BASE_URL=http://localhost:8000</pre>
-          </div>
-
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">paso 3b — guardar sesión MilAnuncios (login manual)</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>source venv/bin/activate && python save_session.py</pre>
-          </div>
-          <div class="flow-note">Se abrirá Chrome. Inicia sesión en MilAnuncios y navega a <strong>Mis Anuncios</strong>. El script detecta el login automáticamente y guarda las cookies — no es necesario pulsar nada.</div>
         </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-label">paso 3b — guardar sesión MilAnuncios (login manual)</span>
+            <button class="copy-btn" onclick="copyFromPre(this)">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
+          </div>
+          <pre>source venv/bin/activate && python save_session.py</pre>
+        </div>
+        <div class="flow-note">Se abrirá Chrome. Inicia sesión en MilAnuncios y navega a <strong>Mis Anuncios</strong>. El script detecta el login automáticamente y guarda las cookies — no es necesario pulsar nada.</div>
       </div>
+    </div>
 
-      <!-- 4 · Arrancar — PRIMARY -->
-      <div class="flow-step">
-        <div class="flow-spine"><div class="flow-num primary">4</div></div>
-        <div class="flow-body">
-          <div class="flow-title primary">Arrancar API + Dashboard</div>
-          <div class="flow-desc">El cron diario (6:00 Madrid) se activa automáticamente con la API</div>
-          <div class="code-block" style="border-color: rgba(108,99,255,0.3);">
-            <div class="code-header" style="border-color: rgba(108,99,255,0.2);">
-              <span class="code-label">terminal — background, sobrevive al cierre del terminal</span>
-              <button class="copy-btn" onclick="copyCode(this, 'bash start.sh')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>bash start.sh</pre>
+    <!-- 4 · Arrancar — PRIMARY -->
+    <div class="flow-step">
+      <div class="flow-spine"><div class="flow-num primary">4</div></div>
+      <div class="flow-body">
+        <div class="flow-title primary">Arrancar API + Dashboard</div>
+        <div class="flow-desc">El cron diario (6:00 Madrid) se activa automáticamente con la API</div>
+        <div class="code-block" style="border-color: rgba(108,99,255,0.3);">
+          <div class="code-header" style="border-color: rgba(108,99,255,0.2);">
+            <span class="code-label">terminal — background, sobrevive al cierre del terminal</span>
+            <button class="copy-btn" onclick="copyCode(this, 'bash start.sh')">
+              <span class="material-symbols-outlined">content_copy</span>Copiar
+            </button>
           </div>
-          <div class="alert success">
-            <span class="material-symbols-outlined">check_circle</span>
-            <span>
-              Dashboard: <strong>http://localhost:3000</strong> — usa la contraseña de <code>DASHBOARD_PASSWORD</code><br>
-              API health: <strong>http://localhost:8000/health</strong> — debe devolver <code>{"status":"ok"}</code>
-            </span>
-          </div>
+          <pre>bash start.sh</pre>
         </div>
-      </div>
-
-    </div><!-- /flow -->
-
-
-    <!-- ── CRON ── -->
-    <div class="section-title">Cron automático</div>
-    <div class="steps">
-      <div class="step open">
-        <div class="step-header" onclick="toggleStep(this)">
-          <div class="step-icon">
-            <span class="material-symbols-outlined" style="font-size:14px;">schedule</span>
-          </div>
-          <div class="step-meta">
-            <div class="step-title">Programación automática del scraper</div>
-            <div class="step-desc">Se activa solo al arrancar la API — sin configuración extra</div>
-          </div>
-          <span class="material-symbols-outlined step-chevron">expand_more</span>
-        </div>
-        <div class="step-body">
-          <div class="alert success">
-            <span class="material-symbols-outlined">check_circle</span>
-            Por defecto el scraper corre todos los días a las <strong>6:00 (Europe/Madrid)</strong>. El horario persiste aunque reinicies la API.
-          </div>
-          <p>Ver el horario configurado:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">GET /api/cron</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>curl http://localhost:8000/api/cron \
-  -H "x-api-key: TU_API_SECRET_KEY"</pre>
-          </div>
-          <p>Cambiar el horario (ejemplo: 8:30):</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">PUT /api/cron</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>curl -X PUT http://localhost:8000/api/cron \
-  -H "x-api-key: TU_API_SECRET_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"hour": 8, "minute": 30}'</pre>
-          </div>
-          <p>Lanzar el scraper manualmente ahora:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">POST /api/scraper/run</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>curl -X POST http://localhost:8000/api/scraper/run \
-  -H "x-api-key: TU_API_SECRET_KEY"</pre>
-          </div>
+        <div class="alert success">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span>
+            Dashboard: <strong>http://localhost:3000</strong> — usa la contraseña de <code>DASHBOARD_PASSWORD</code><br>
+            API health: <strong>http://localhost:8000/health</strong> — debe devolver <code>{"status":"ok"}</code>
+          </span>
         </div>
       </div>
     </div>
 
+  </div><!-- /flow -->
 
-    <!-- ── MAINTENANCE ── -->
-    <div class="section-title">Mantenimiento</div>
-    <div class="steps">
 
-      <div class="step">
-        <div class="step-header" onclick="toggleStep(this)">
-          <div class="step-icon">
-            <span class="material-symbols-outlined" style="font-size:14px;">refresh</span>
-          </div>
-          <div class="step-meta">
-            <div class="step-title">Renovar sesión expirada</div>
-            <div class="step-desc">Cuando aparece <code>SessionExpiredException</code> en los logs</div>
-          </div>
-          <span class="material-symbols-outlined step-chevron">expand_more</span>
-        </div>
-        <div class="step-body">
-          <div class="alert info">
-            <span class="material-symbols-outlined">info</span>
-            Las cookies de MilAnuncios duran ~30 min de inactividad. El scraper para automáticamente y reporta la excepción.
-          </div>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>source venv/bin/activate && python save_session.py</pre>
-          </div>
-          <p>O desde la API sin abrir el terminal:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">POST /api/session/renew</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>curl -X POST http://localhost:8000/api/session/renew \
-  -H "x-api-key: TU_API_SECRET_KEY"</pre>
-          </div>
-        </div>
-      </div>
+  <footer>
+    <p>Naves Scraper &mdash; <a href="docs/init_milanuncios.md">Documentación técnica</a></p>
+  </footer>
 
-      <div class="step">
-        <div class="step-header" onclick="toggleStep(this)">
-          <div class="step-icon">
-            <span class="material-symbols-outlined" style="font-size:14px;">stop_circle</span>
-          </div>
-          <div class="step-meta">
-            <div class="step-title">Parar / reiniciar los servicios</div>
-            <div class="step-desc">Detener API y dashboard o reiniciarlos con un solo comando</div>
-          </div>
-          <span class="material-symbols-outlined step-chevron">expand_more</span>
-        </div>
-        <div class="step-body">
-          <p>Detener:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyCode(this, 'bash stop.sh')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>bash stop.sh</pre>
-          </div>
-          <p>Reiniciar (detiene y vuelve a arrancar):</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyCode(this, 'bash restart.sh')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>bash restart.sh</pre>
-          </div>
-          <p>Iniciar de nuevo tras haber parado:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyCode(this, 'bash start.sh')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>bash start.sh</pre>
-          </div>
-        </div>
-      </div>
+</div><!-- /page -->
 
-      <div class="step">
-        <div class="step-header" onclick="toggleStep(this)">
-          <div class="step-icon">
-            <span class="material-symbols-outlined" style="font-size:14px;">article</span>
-          </div>
-          <div class="step-meta">
-            <div class="step-title">Ver logs en tiempo real</div>
-            <div class="step-desc">Monitorizar la actividad del scraper</div>
-          </div>
-          <span class="material-symbols-outlined step-chevron">expand_more</span>
-        </div>
-        <div class="step-body">
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>tail -f logs/api.log
-tail -f logs/scraper.log</pre>
-          </div>
-          <div class="alert warning">
-            <span class="material-symbols-outlined">warning</span>
-            No elimines <code>chrome_profile/</code> — acumula confianza anti-bot a lo largo del tiempo.
-          </div>
-        </div>
-      </div>
+<script>
+  function toggleStep(header) {
+    header.parentElement.classList.toggle('open');
+  }
 
-      <div class="step">
-        <div class="step-header" onclick="toggleStep(this)">
-          <div class="step-icon">
-            <span class="material-symbols-outlined" style="font-size:14px;">desktop_windows</span>
-          </div>
-          <div class="step-meta">
-            <div class="step-title">Panel Chrome remoto (VPS)</div>
-            <div class="step-desc">Resolver captchas desde el dashboard sin acceso fisico al servidor</div>
-          </div>
-          <span class="material-symbols-outlined step-chevron">expand_more</span>
-        </div>
-        <div class="step-body">
-          <div class="alert info">
-            <span class="material-symbols-outlined">info</span>
-            <span>Solo necesario en VPS/servidor remoto. En Mac local, Chrome es visible directamente en pantalla.</span>
-          </div>
-          <p>El <code>install.sh</code> instala automaticamente <code>x11vnc</code> y <code>websockify</code> en Linux. Si no se instalaron, ejecuta:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal — instalar dependencias VNC</span>
-              <button class="copy-btn" onclick="copyFromPre(this)">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>sudo apt-get install -y x11vnc novnc websockify</pre>
-          </div>
-          <p>Reinicia los servicios para activar el panel:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-label">terminal</span>
-              <button class="copy-btn" onclick="copyCode(this, 'bash restart.sh')">
-                <span class="material-symbols-outlined">content_copy</span>Copiar
-              </button>
-            </div>
-            <pre>bash restart.sh</pre>
-          </div>
-          <p>Una vez activo, cuando aparezca un captcha o se inicie la renovacion de sesion, el dashboard mostrara un panel <strong>"Chrome remoto"</strong> en la pagina de Control. Podras ver e interactuar con Chrome directamente desde el navegador.</p>
-          <div class="alert warning">
-            <span class="material-symbols-outlined">warning</span>
-            <span>x11vnc escucha solo en localhost. websockify expone el puerto <code>6080</code> — asegurate de que tu firewall solo permita acceso a los puertos <code>3000</code> (dashboard) y <code>8000</code> (API).</span>
-          </div>
-        </div>
-      </div>
+  function copyCode(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      const icon = btn.querySelector('.material-symbols-outlined');
+      const prev = icon.textContent;
+      icon.textContent = 'check';
+      btn.classList.add('copied');
+      setTimeout(() => { icon.textContent = prev; btn.classList.remove('copied'); }, 1800);
+    });
+  }
 
-    </div><!-- /maintenance -->
-
-    <footer>
-      <p>Naves Scraper &mdash; <a href="docs/init_milanuncios.md">Documentación técnica</a></p>
-    </footer>
-
-  </div><!-- /page -->
-
-  <script>
-    function toggleStep(header) {
-      header.parentElement.classList.toggle('open');
-    }
-
-    function copyCode(btn, text) {
-      navigator.clipboard.writeText(text).then(() => {
-        const icon = btn.querySelector('.material-symbols-outlined');
-        const prev = icon.textContent;
-        icon.textContent = 'check';
-        btn.classList.add('copied');
-        setTimeout(() => { icon.textContent = prev; btn.classList.remove('copied'); }, 1800);
-      });
-    }
-
-    function copyFromPre(btn) {
-      const pre = btn.closest('.code-block').querySelector('pre');
-      copyCode(btn, pre.textContent.trim());
-    }
-  </script>
+  function copyFromPre(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    copyCode(btn, pre.textContent.trim());
+  }
+</script>
 </body>
 </html>

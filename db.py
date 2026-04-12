@@ -81,9 +81,11 @@ _NEW_COLUMNS = [
     ("phone2",             "TEXT"),
     ("seller_id",          "TEXT"),
     ("seller_url",         "TEXT"),
-    ("images_local",       "TEXT"),
-    ("webflow_item_id",    "TEXT"),
-    ("webflow_synced_at",  "TIMESTAMP"),
+    ("images_local",            "TEXT"),
+    ("webflow_item_id",         "TEXT"),
+    ("webflow_synced_at",       "TIMESTAMP"),
+    ("webflow_slug",            "TEXT"),
+    ("webflow_assets_synced_at", "TIMESTAMP"),
 ]
 
 
@@ -101,9 +103,10 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
 
     # Índices para columnas nuevas (seguros de crear después de migración)
     conn.executescript("""
-        CREATE INDEX IF NOT EXISTS idx_price          ON listings(price_numeric);
-        CREATE INDEX IF NOT EXISTS idx_ad_type        ON listings(ad_type);
+        CREATE INDEX IF NOT EXISTS idx_price           ON listings(price_numeric);
+        CREATE INDEX IF NOT EXISTS idx_ad_type         ON listings(ad_type);
         CREATE INDEX IF NOT EXISTS idx_webflow_item_id ON listings(webflow_item_id);
+        CREATE INDEX IF NOT EXISTS idx_webflow_slug    ON listings(webflow_slug);
     """)
     conn.commit()
 
@@ -156,7 +159,8 @@ def insert_listing(conn: sqlite3.Connection, data: dict) -> bool:
                 location, province, address, zipcode,
                 seller_type, seller_name, seller_id, seller_url, phone, phone2,
                 photos,
-                published_at, updated_at, raw_html
+                published_at, updated_at, raw_html,
+                webflow_slug
             ) VALUES (
                 :listing_id, :url, :reference,
                 :title, :description,
@@ -166,7 +170,8 @@ def insert_listing(conn: sqlite3.Connection, data: dict) -> bool:
                 :location, :province, :address, :zipcode,
                 :seller_type, :seller_name, :seller_id, :seller_url, :phone, :phone2,
                 :photos,
-                :published_at, :updated_at, :raw_html
+                :published_at, :updated_at, :raw_html,
+                :webflow_slug
             )
             """,
             {
@@ -201,6 +206,7 @@ def insert_listing(conn: sqlite3.Connection, data: dict) -> bool:
                 "published_at":       data.get("published_at"),
                 "updated_at":         data.get("updated_at"),
                 "raw_html":           data.get("raw_html"),
+                "webflow_slug":       data.get("webflow_slug"),
             },
         )
         conn.commit()
@@ -302,7 +308,7 @@ def get_unsynced_listings(conn: sqlite3.Connection) -> list[dict]:
                surface_m2, rooms, bathrooms, floor, condition, energy_certificate, features,
                ad_type, property_type, location, province, address, zipcode,
                seller_type, seller_name, phone, phone2,
-               photos, images_local, published_at, updated_at
+               photos, images_local, published_at, updated_at, webflow_slug
         FROM listings
         WHERE webflow_item_id IS NULL
         ORDER BY scraped_at DESC
@@ -321,3 +327,47 @@ def update_webflow_id(
     )
     conn.commit()
     logger.debug(f"[DB] Webflow ID guardado para {listing_id}: {webflow_item_id}")
+
+
+def update_webflow_slug(
+    conn: sqlite3.Connection, listing_id: str, webflow_slug: str
+) -> None:
+    """Stores the unique title-based slug for a listing."""
+    conn.execute(
+        "UPDATE listings SET webflow_slug = ? WHERE listing_id = ?",
+        (webflow_slug, listing_id),
+    )
+    conn.commit()
+    logger.debug(f"[DB] webflow_slug guardado para {listing_id}: {webflow_slug}")
+
+
+def mark_webflow_assets_synced(
+    conn: sqlite3.Connection, listing_id: str
+) -> None:
+    """
+    Stamp a listing as having had its images re-uploaded to Webflow's
+    Assets CDN (used by scripts/migrate_images.py Phase G to make the
+    one-shot re-upload idempotent across re-runs).
+    """
+    conn.execute(
+        "UPDATE listings SET webflow_assets_synced_at = ? WHERE listing_id = ?",
+        (datetime.now(timezone.utc).isoformat(), listing_id),
+    )
+    conn.commit()
+    logger.debug(f"[DB] webflow_assets_synced_at stamped for {listing_id}")
+
+
+def get_all_listings_for_migration(conn: sqlite3.Connection) -> list[dict]:
+    """
+    Returns every listing with only the columns needed by scripts/migrate_slugs.py.
+    Ordered by scraped_at ASC so the oldest row keeps the bare slug and newer
+    collisions get the `-2`, `-3`... suffix.
+    """
+    rows = conn.execute(
+        """
+        SELECT listing_id, title, webflow_slug, webflow_item_id, images_local
+        FROM listings
+        ORDER BY scraped_at ASC
+        """
+    ).fetchall()
+    return [dict(r) for r in rows]

@@ -11,19 +11,14 @@ import argparse
 import asyncio
 import logging
 import os
-import re
 import signal
 import sys
-import unicodedata
-from pathlib import Path
-
-import requests
 
 from dotenv import load_dotenv
 load_dotenv()
 
 from checkpoint_manager import load_checkpoint, save_checkpoint, reset_checkpoint
-from db import init_db, listing_exists, insert_listing, count_listings, update_images_local
+from db import init_db, listing_exists, insert_listing, count_listings
 from integrations.milanuncios import (
     scrape_search_page,
     scrape_listing,
@@ -35,7 +30,9 @@ from integrations.milanuncios import (
 )
 from integrations.parser import parse_listing_id
 from utils.csv_logger import CSVLogger
+from utils.image_downloader import download_images
 from utils.jitter import random_delay
+from utils.slugify import generate_unique_slug
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,62 +62,6 @@ DB_PATH = os.getenv("DB_PATH", "naves.db")
 MIN_SURFACE_M2 = int(os.getenv("MIN_SURFACE_M2", "1000"))
 MAX_PAGES_ENV = int(os.getenv("MAX_PAGES", "0"))
 DOWNLOAD_IMAGES = os.getenv("DOWNLOAD_IMAGES", "true").lower() == "true"
-IMAGES_DIR = os.getenv("IMAGES_DIR", "images")
-
-
-def _slugify_title(title: str | None, listing_id: str) -> str:
-    """Generate an SEO-friendly slug from the listing title."""
-    text = title.strip() if title else ""
-    if not text:
-        return f"listing-{listing_id}"
-    # Transliterate unicode accents (á→a, ñ→n, etc.)
-    text = unicodedata.normalize("NFKD", text)
-    text = text.encode("ascii", "ignore").decode("ascii")
-    text = text.lower()
-    text = re.sub(r"[^a-z0-9]+", "-", text)
-    text = text.strip("-")
-    text = re.sub(r"-{2,}", "-", text)
-    return text[:80].rstrip("-")
-
-
-def _download_one_image(url: str, dest: Path) -> bool:
-    """Descarga una imagen y la guarda en dest. Devuelve True si tuvo éxito."""
-    try:
-        resp = requests.get(url, timeout=15, stream=True)
-        resp.raise_for_status()
-        dest.write_bytes(resp.content)
-        return True
-    except Exception as e:
-        logger.warning(f"[IMG] Error descargando {url}: {e}")
-        return False
-
-
-async def download_images(
-    conn, listing_id: str, photo_urls: list, title: str | None = None,
-) -> None:
-    """Download all images for a listing with SEO-friendly filenames."""
-    if not photo_urls:
-        return
-    folder = Path(IMAGES_DIR) / listing_id
-    folder.mkdir(parents=True, exist_ok=True)
-
-    slug = _slugify_title(title, listing_id)
-    local_paths = []
-    for i, url in enumerate(photo_urls, start=1):
-        ext = "jpg"
-        url_path = url.split("?")[0]
-        if "." in url_path.split("/")[-1]:
-            ext = url_path.rsplit(".", 1)[-1].lower()
-            if ext not in ("jpg", "jpeg", "png", "webp", "gif"):
-                ext = "jpg"
-        dest = folder / f"{slug}-image-{i}.{ext}"
-        ok = await asyncio.to_thread(_download_one_image, url, dest)
-        if ok:
-            local_paths.append(str(dest))
-
-    if local_paths:
-        update_images_local(conn, listing_id, local_paths)
-        logger.info(f"[IMG] {listing_id}: {len(local_paths)}/{len(photo_urls)} imágenes descargadas → {folder}")
 
 
 async def run(
@@ -257,6 +198,13 @@ async def run(
                         csv_log.log(listing_id, url, "", "", "", "", "error")
                         continue
 
+                    # Compute the final unique slug BEFORE insert so the row
+                    # is stored with its slug in a single transaction and so
+                    # image filenames match the Webflow page slug.
+                    data["webflow_slug"] = generate_unique_slug(
+                        conn, data.get("title"), listing_id
+                    )
+
                     inserted = insert_listing(conn, data)
                     if inserted:
                         consecutive_duplicates = 0  # resetear contador
@@ -271,7 +219,9 @@ async def run(
                             "inserted",
                         )
                         if DOWNLOAD_IMAGES and data.get("photos"):
-                            await download_images(conn, listing_id, data["photos"], data.get("title"))
+                            await download_images(
+                                conn, listing_id, data["photos"], data["webflow_slug"]
+                            )
                         if batch_size and total_new >= batch_size:
                             logger.info(f"[Batch] Límite de {batch_size} anuncios alcanzado.")
                             stop_pagination = True

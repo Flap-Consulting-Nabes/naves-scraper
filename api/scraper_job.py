@@ -255,6 +255,7 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
 
 async def launch_scraper(
     max_pages: int = 0,
+    batch: int = 0,
     dry_run: bool = False,
     reset: bool = False,
 ) -> bool:
@@ -273,6 +274,8 @@ async def launch_scraper(
         cmd = [sys.executable, str(PROJECT_ROOT / "scraper_engine.py")]
         if max_pages:
             cmd += ["--pages", str(max_pages)]
+        if batch:
+            cmd += ["--batch", str(batch)]
         if dry_run:
             cmd.append("--dry-run")
         if reset:

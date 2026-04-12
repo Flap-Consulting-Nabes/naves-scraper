@@ -112,6 +112,8 @@ python scraper_engine.py --reset                # Ignore checkpoint
 | `docs/frontend.md` | Full Next.js dashboard architecture and components |
 | `docs/vnc-chrome-viewer.md` | VNC Chrome remote panel setup and architecture |
 | `docs/init_milanuncios.md` | Setup notes and lessons from previous projects |
+| `docs/plans/slug-system.md` | Title-based unique slug contract (page slug + image filenames) |
+| `docs/plans/image-compression.md` | WebP compression (q=80, max 1200px) + Webflow asset re-upload fix |
 
 ---
 
@@ -124,6 +126,12 @@ python scraper_engine.py --reset                # Ignore checkpoint
 **New frontend page:** `frontend/src/app/(app)/<page>/page.tsx` → sidebar link in `sidebar.tsx` → `useSWR` + types in `types.ts`
 
 **Change ban detection:** Edit `_check_for_ban()` in `milanuncios.py`. Hard bans → `ScrapeBanException`. Captchas → `CaptchaRequiredException`.
+
+**Slug generation:** Title-based unique slugs live in `utils/slugify.py` (`slugify_title` + `generate_unique_slug`). New listings compute their slug in `scraper_engine.run()` before `insert_listing()`; the same value feeds Webflow page slugs and local image filenames. One-shot back-fill: `python scripts/migrate_slugs.py --dry-run`. See `docs/plans/slug-system.md`.
+
+**Image compression:** `utils/image_compressor.compress_to_webp()` (q=80, max 1200px, Pillow, LANCZOS) is called from `utils/image_downloader.py` on every scraped photo — filenames are always `{slug}-image-{i}.webp`. Back-fill existing files + re-upload to Webflow Assets CDN: `python scripts/migrate_images.py --dry-run`. Phase G requires `WEBFLOW_TOKEN` with `assets:read` / `assets:write` (auth probe aborts with exit code 2 otherwise). See `docs/plans/image-compression.md`.
+
+**Webflow locale:** All CMS items are created with the Spanish `cmsLocaleId` (auto-discovered from `GET /sites/{siteId}`). `webflow_client.resolve_spanish_locale_id()` finds the locale by `tag` starting with `es`. Back-fill existing items: `python scripts/backfill_locale.py --dry-run`.
 
 ---
 

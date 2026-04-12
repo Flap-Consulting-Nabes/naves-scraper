@@ -97,6 +97,7 @@ class CronConfigRequest(BaseModel):
 
 class ScrapeRunRequest(BaseModel):
     max_pages: int = 0
+    batch: int = 0
     dry_run: bool = False
     reset: bool = False
 
@@ -127,6 +128,7 @@ async def health():
 async def scraper_run(body: ScrapeRunRequest = ScrapeRunRequest()):
     launched = await launch_scraper(
         max_pages=body.max_pages,
+        batch=body.batch,
         dry_run=body.dry_run,
         reset=body.reset,
     )

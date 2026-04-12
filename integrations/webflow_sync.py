@@ -13,7 +13,6 @@ import asyncio
 import json
 import logging
 import os
-import re
 import sqlite3
 from pathlib import Path
 
@@ -21,7 +20,9 @@ import httpx
 from dotenv import load_dotenv
 
 from db import get_unsynced_listings, init_db, update_webflow_id
+from integrations.cloudinary_client import delete_images as cloudinary_delete_images
 from integrations.webflow_client import WebflowClient
+from integrations.webflow_image_uploader import upload_listing_images
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -90,14 +91,6 @@ def resolve_field_mapping(collection_schema: dict) -> dict[str, str]:
     return resolved
 
 
-def _safe_slug(listing_id: str) -> str:
-    """Genera un slug URL-safe estable a partir del listing_id."""
-    slug = f"nave-{listing_id}"
-    slug = re.sub(r"[^a-z0-9\-]", "-", slug.lower())
-    slug = re.sub(r"-{2,}", "-", slug).strip("-")
-    return slug
-
-
 def build_field_data(
     row: dict,
     field_mapping: dict[str, str],
@@ -141,8 +134,9 @@ def build_field_data(
     if "name" not in field_data:
         field_data["name"] = row.get("title") or f"Nave industrial {row.get('listing_id', '')}"
 
-    # Slug estable y URL-safe
-    field_data["slug"] = _safe_slug(str(row.get("listing_id", "")))
+    # Slug: use the title-based slug computed at scrape time. Fallback to
+    # `nave-{listing_id}` for legacy rows that have not been back-filled yet.
+    field_data["slug"] = row.get("webflow_slug") or f"nave-{row.get('listing_id', '')}"
 
     # Imágenes: campo Multi-image de Webflow
     if image_urls:
@@ -186,53 +180,24 @@ async def sync_pending_listings() -> dict:
             field_mapping = resolve_field_mapping(schema)
             collection_fields = schema.get("fields", [])
 
+            # Resolve Spanish locale for all items (MilAnuncios = Spanish)
+            spanish_locale_id = await client.resolve_spanish_locale_id()
+            locale_ids = [spanish_locale_id] if spanish_locale_id else None
+
             rows = get_unsynced_listings(conn)
             logger.info("[Webflow] Iniciando sync: %d anuncios pendientes", len(rows))
 
             for row in rows:
                 listing_id = row.get("listing_id", "")
-                image_urls: list[str] = []
 
-                # Subir imágenes locales o usar fallback remoto
-                images_local_raw = row.get("images_local")
-                photos_raw = row.get("photos")
-                
-                if images_local_raw and images_local_raw != "null":
-                    try:
-                        local_paths: list[str] = json.loads(images_local_raw)
-                        for local_path in local_paths[:10]:
-                            full_path = (
-                                local_path
-                                if Path(local_path).is_absolute()
-                                else str(PROJECT_ROOT / local_path)
-                            )
-                            if not Path(full_path).exists():
-                                continue
-                            try:
-                                filename = Path(full_path).name
-                                hosted_url = await client.upload_asset(full_path, filename)
-                                if hosted_url:
-                                    image_urls.append(hosted_url)
-                            except Exception as e:
-                                logger.warning(
-                                    "[Webflow] Error subiendo imagen local %s: %s", local_path, e
-                                )
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                
-                # FALLBACK: si no se logró subir ninguna imagen local, usar las URLs remotas originales
-                if not image_urls and photos_raw and photos_raw != "null":
-                    try:
-                        remote_urls = json.loads(photos_raw)
-                        image_urls.extend(remote_urls[:10])
-                        logger.info("[Webflow] Usando fallback remoto para %s (%d imágenes)", listing_id, len(image_urls))
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+                # Image upload fallback chain: Webflow Assets → Cloudinary
+                # → raw MilAnuncios URLs. See webflow_image_uploader.py.
+                image_urls, cloudinary_public_ids = await upload_listing_images(client, row)
 
                 # Construir y enviar item
                 try:
                     field_data = build_field_data(row, field_mapping, image_urls, collection_fields)
-                    item_id = await client.create_item_draft(field_data)
+                    item_id = await client.create_item_draft(field_data, cms_locale_ids=locale_ids)
                     update_webflow_id(conn, listing_id, item_id)
                     synced += 1
                     logger.info(
@@ -243,23 +208,31 @@ async def sync_pending_listings() -> dict:
                     failed += 1
                     status_code = e.response.status_code
                     response_text = e.response.text[:300]
-                    if status_code == 409:
-                        # Slug duplicado = ya existe en Webflow
-                        logger.warning(
-                            "[Webflow] %s ya existe en Webflow (slug duplicado), marcando como sync",
-                            listing_id,
-                        )
-                        update_webflow_id(conn, listing_id, "DUPLICATE")
-                        failed -= 1
-                        synced += 1
-                    else:
-                        logger.error(
-                            "[Webflow] ✗ %s: HTTP %s — %s",
-                            listing_id, status_code, response_text,
-                        )
+                    # 409 means Webflow already has something at this slug.
+                    # With the title-based unique slug system in place this
+                    # points to an external/manual edit worth investigating —
+                    # leave the row unsynced so it is retried (or picked up
+                    # manually) rather than silently marking it DUPLICATE.
+                    logger.error(
+                        "[Webflow] ✗ %s: HTTP %s — %s",
+                        listing_id, status_code, response_text,
+                    )
                 except Exception as e:
                     failed += 1
                     logger.error("[Webflow] ✗ %s: %s", listing_id, e)
+                finally:
+                    # Clean up Cloudinary staging assets regardless of the
+                    # create_item_draft outcome: on success, Webflow has
+                    # already re-hosted the file on its own CDN and no
+                    # longer needs the Cloudinary copy; on failure, the
+                    # next retry will re-upload with `overwrite=True`, so
+                    # there is no point keeping the stale copy around.
+                    if cloudinary_public_ids:
+                        deleted = await cloudinary_delete_images(cloudinary_public_ids)
+                        logger.info(
+                            "[Cloudinary] %s: borrados %d/%d assets temporales",
+                            listing_id, deleted, len(cloudinary_public_ids),
+                        )
 
                 # Respetar rate limit de Webflow (~2 req/s para escritura)
                 await asyncio.sleep(0.6)
