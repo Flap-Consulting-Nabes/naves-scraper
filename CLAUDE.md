@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Repository:** `https://github.com/Flap-Consulting-Nabes/naves-scraper`
+
 Guidance for Claude Code when working in this repository.
 
 ## Project Overview
