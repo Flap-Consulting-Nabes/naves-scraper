@@ -17,7 +17,7 @@ scheduler.db
 
 # Logs
 *.log
-logs/
+/logs/
 
 # Imágenes descargadas (demasiado grandes para git)
 images/
