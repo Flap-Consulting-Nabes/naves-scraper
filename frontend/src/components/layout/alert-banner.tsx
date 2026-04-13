@@ -10,11 +10,11 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 function getSessionSubLabel(s: { waiting_for_login?: boolean; login_detected?: boolean; navigating?: boolean } | null | undefined): string {
-  if (!s) return "Renovando sesion...";
-  if (s.waiting_for_login) return "Esperando inicio de sesion en Chrome...";
-  if (s.login_detected) return "Login detectado, guardando sesion...";
-  if (s.navigating) return "Navegando para verificar sesion...";
-  return "Renovando sesion...";
+  if (!s) return "Renovando sesión...";
+  if (s.waiting_for_login) return "Esperando inicio de sesión en Chrome...";
+  if (s.login_detected) return "Login detectado, guardando sesión...";
+  if (s.navigating) return "Navegando para verificar sesión...";
+  return "Renovando sesión...";
 }
 
 export function AlertBanner() {
@@ -31,7 +31,7 @@ export function AlertBanner() {
     try {
       await cancelSession();
       mutate();
-      toast.info("Renovacion de sesion cancelada.");
+      toast.info("Renovación de sesión cancelada.");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -46,7 +46,7 @@ export function AlertBanner() {
       await renewSession();
       mutate();
       openChrome(true);
-      toast.info("Chrome abierto. Completa el login para renovar la sesion.");
+      toast.info("Chrome abierto. Completa el login para renovar la sesión.");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -62,7 +62,7 @@ export function AlertBanner() {
         <div className="flex-1 text-sm">
           <p className="font-medium">Captcha detectado</p>
           <p className="text-amber-700 dark:text-amber-300">
-            Chrome esta abierto en pantalla. Resuelve el captcha manualmente para que el scraper pueda continuar.
+            Chrome está abierto en pantalla. Resuelve el captcha manualmente para que el scraper pueda continuar.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -84,7 +84,7 @@ export function AlertBanner() {
             disabled={starting}
             className="border-amber-400 text-amber-900 hover:bg-amber-100"
           >
-            Parar y renovar sesion
+            Parar y renovar sesión
           </Button>
         </div>
       </div>
@@ -98,12 +98,12 @@ export function AlertBanner() {
       <div className="sticky top-0 z-30 flex items-start gap-3 border-b bg-blue-50 px-4 py-3 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
         <RefreshCw className="mt-0.5 size-4 shrink-0 animate-spin" />
         <div className="flex-1 text-sm">
-          <p className="font-medium">Renovando sesion</p>
+          <p className="font-medium">Renovando sesión</p>
           {session?.waiting_for_login ? (
             <ol className="mt-1 space-y-0.5 text-blue-700 dark:text-blue-300 list-decimal list-inside">
               <li>Resuelve el captcha si aparece en Chrome</li>
-              <li>Inicia sesion en tu cuenta de Milanuncios</li>
-              <li>Ve a &quot;Mis Anuncios&quot; — el script lo detectara automaticamente</li>
+              <li>Inicia sesión en tu cuenta de Milanuncios</li>
+              <li>Ve a &quot;Mis Anuncios&quot; — el script lo detectará automáticamente</li>
             </ol>
           ) : (
             <p className="text-blue-700 dark:text-blue-300">{subLabel}</p>
@@ -141,9 +141,9 @@ export function AlertBanner() {
       <div className="sticky top-0 z-30 flex items-center gap-3 border-b bg-red-50 px-4 py-3 text-red-900 dark:bg-red-950/40 dark:text-red-200">
         <KeyRound className="size-4 shrink-0" />
         <div className="flex-1 text-sm">
-          <p className="font-medium">Sesion expirada o ban detectado</p>
+          <p className="font-medium">Sesión expirada o ban detectado</p>
           <p className="text-red-700 dark:text-red-300">
-            Es necesario renovar la sesion de Chrome para continuar.
+            Es necesario renovar la sesión de Chrome para continuar.
           </p>
         </div>
         <Button

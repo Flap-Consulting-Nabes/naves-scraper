@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 cd "$(dirname "$0")/frontend"
-npm run start
+exec npm run start

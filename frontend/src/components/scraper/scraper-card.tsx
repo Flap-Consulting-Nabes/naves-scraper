@@ -55,7 +55,7 @@ export function ScraperCard() {
         {status?.state === "running" && (
           <>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Pagina actual</span>
+              <span className="text-muted-foreground">Página actual</span>
               <span className="font-medium">{status.current_page ?? "—"}</span>
             </div>
             <div className="flex justify-between">

@@ -38,12 +38,20 @@ function StatCard({
 }
 
 export function StatsRow() {
-  const { data: listingsData, isLoading: listingsLoading } = useSWR<ListingsResponse>(
+  const { data: listingsData, isLoading: listingsLoading, error: listingsError } = useSWR<ListingsResponse>(
     "/api/listings?page_size=1",
     fetcher,
     { revalidateOnFocus: false }
   );
   const { webflow, isLoading: webflowLoading } = useWebflowStatus();
+
+  if (listingsError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+        Error al cargar estadisticas. Verifica que la API esta activa.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

@@ -14,10 +14,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from api.task_registry import fire_and_track
+
 from api.scraper_job import (
-    PROJECT_ROOT, SESSION_STATUS_FILE, _get_log_handler,
+    PROJECT_ROOT, SESSION_STATUS_FILE,
     _now, _write_status, read_session_status, read_status,
 )
+from utils.logging_config import get_scraper_log_handler
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +68,7 @@ def _write_session_status(data: dict) -> None:
 
 async def _do_monitor_session(proc: asyncio.subprocess.Process) -> bool:
     """Monitorea stdout de save_session.py. Retorna True si la sesión fue guardada."""
-    log_handler = _get_log_handler()
+    log_handler = get_scraper_log_handler()
     session_saved = False
     assert proc.stdout is not None
     async for raw_line in proc.stdout:
@@ -223,5 +226,5 @@ async def launch_session_renewal() -> bool:
         _write_session_status(sess)
 
         logger.info("[Session] save_session.py lanzado PID %s", _session_proc.pid)
-        asyncio.create_task(_monitor_session_proc(_session_proc))
+        fire_and_track(_monitor_session_proc(_session_proc), name="session-monitor")
         return True

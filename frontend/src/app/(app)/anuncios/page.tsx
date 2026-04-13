@@ -31,7 +31,7 @@ export default function AnunciosPage() {
   }
 
   const query = buildQuery(filters);
-  const { data, isLoading } = useSWR<ListingsResponse>(
+  const { data, isLoading, error } = useSWR<ListingsResponse>(
     `/api/listings?${query}`,
     fetcher,
     { revalidateOnFocus: false }
@@ -41,6 +41,11 @@ export default function AnunciosPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Anuncios</h1>
       <ListingsFilters filters={filters} onChange={handleFilterChange} />
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+          Error al cargar anuncios. Verifica que la API esta activa.
+        </div>
+      )}
       <ListingsTable
         data={data}
         isLoading={isLoading}

@@ -293,6 +293,7 @@
       <div class="badge"><span class="material-symbols-outlined">terminal</span>Ubuntu 22+</div>
       <div class="badge"><span class="material-symbols-outlined">code</span>Python 3.11+</div>
       <div class="badge"><span class="material-symbols-outlined">javascript</span>Node.js 20+</div>
+      <div class="badge"><span class="material-symbols-outlined">web</span>Google Chrome</div>
     </div>
   </header>
 
@@ -310,6 +311,10 @@
     <li>
       <span class="material-symbols-outlined">check_circle</span>
       Node.js 20+ instalado — <code>node --version</code> debe mostrar v20 o superior
+    </li>
+    <li>
+      <span class="material-symbols-outlined">check_circle</span>
+      Google Chrome instalado — el scraper usa Chrome con perfil persistente para evitar bloqueos anti-bot
     </li>
     <li>
       <span class="material-symbols-outlined">check_circle</span>
@@ -345,6 +350,10 @@
           </div>
           <pre>brew install git python@3.12</pre>
         </div>
+        <div class="alert info">
+          <span class="material-symbols-outlined">info</span>
+          <span><strong>Google Chrome</strong> debe estar instalado. Descarga desde <strong>google.com/chrome</strong> si no lo tienes. El scraper lo necesita para navegar MilAnuncios.</span>
+        </div>
       </div>
     </div>
 
@@ -361,7 +370,7 @@
               <span class="material-symbols-outlined">content_copy</span>Copiar
             </button>
           </div>
-          <pre>git clone https://github.com/AlejandroTechFlap/naves-scraper.git naves-scraper
+          <pre>git clone https://github.com/Flap-Consulting-Nabes/naves-scraper.git naves-scraper
 cd naves-scraper
 bash install.sh</pre>
         </div>

@@ -22,8 +22,43 @@ header "════════════════════════
 header "   Naves Scraper — Setup de producción "
 header "═══════════════════════════════════════"
 
-# ── 1. Verificar Python 3.11+ ────────────────────────────────────────────────
-header "1 · Verificando Python"
+# ── 1. Verify Google Chrome ──────────────────────────────────────────────────
+header "1 · Checking Google Chrome"
+
+CHROME_FOUND=false
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [ -d "/Applications/Google Chrome.app" ]; then
+        CHROME_FOUND=true
+        CHROME_VER=$("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --version 2>/dev/null || echo "installed")
+        success "Google Chrome found: $CHROME_VER"
+    fi
+else
+    for chrome_cmd in google-chrome google-chrome-stable chromium-browser chromium; do
+        if command -v "$chrome_cmd" &>/dev/null; then
+            CHROME_FOUND=true
+            CHROME_VER=$("$chrome_cmd" --version 2>/dev/null || echo "installed")
+            success "Chrome found: $CHROME_VER"
+            break
+        fi
+    done
+fi
+
+if [ "$CHROME_FOUND" = "false" ]; then
+    error "Google Chrome is required but was not found."
+    echo ""
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        warn "Install Chrome from: https://www.google.com/chrome/"
+        echo "   Or with Homebrew:  brew install --cask google-chrome"
+    else
+        warn "Install Chrome:"
+        echo "   wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+        echo "   sudo dpkg -i google-chrome-stable_current_amd64.deb"
+    fi
+    exit 1
+fi
+
+# ── 2. Verify Python 3.11+ ──────────────────────────────────────────────────
+header "2 · Checking Python"
 
 PYTHON=""
 for cmd in python3.13 python3.12 python3.11 python3 python; do
@@ -53,8 +88,8 @@ fi
 PY_VERSION=$("$PYTHON" -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}.{v.micro}')")
 success "Python $PY_VERSION encontrado en: $(command -v "$PYTHON")"
 
-# ── 2. Dependencias del sistema (Linux) ──────────────────────────────────────
-header "2 · Dependencias del sistema"
+# ── 3. System dependencies (Linux) ───────────────────────────────────────────
+header "3 · System dependencies"
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     if ! command -v Xvfb &>/dev/null; then
@@ -100,8 +135,8 @@ else
     info "macOS detectado — xvfb/VNC no necesarios (Chrome usa la pantalla del sistema)"
 fi
 
-# ── 3. Entorno virtual ───────────────────────────────────────────────────────
-header "3 · Entorno virtual"
+# ── 4. Virtual environment ───────────────────────────────────────────────────
+header "4 · Virtual environment"
 
 
 if [ ! -d "venv" ]; then
@@ -116,16 +151,16 @@ fi
 source venv/bin/activate
 PYTHON="python"  # A partir de aquí usar el python del venv
 
-# ── 3. Dependencias ──────────────────────────────────────────────────────────
-header "4 · Instalando dependencias"
+# ── 5. Python dependencies ───────────────────────────────────────────────────
+header "5 · Installing Python dependencies"
 
 info "pip install -r requirements.txt ..."
 pip install --upgrade pip --quiet
 pip install -r requirements.txt --quiet
 success "Dependencias instaladas"
 
-# ── 4. Archivo .env ──────────────────────────────────────────────────────────
-header "5 · Configuración .env"
+# ── 6. .env config ───────────────────────────────────────────────────────────
+header "6 · .env configuration"
 
 if [ ! -f ".env" ]; then
     info "Copiando .env.example → .env"
@@ -156,8 +191,8 @@ else
     fi
 fi
 
-# ── 5. Directorios ───────────────────────────────────────────────────────────
-header "6 · Creando directorios"
+# ── 7. Directories ───────────────────────────────────────────────────────────
+header "7 · Creating directories"
 
 for dir in logs images chrome_profile; do
     if [ ! -d "$dir" ]; then
@@ -168,8 +203,8 @@ for dir in logs images chrome_profile; do
     fi
 done
 
-# ── 7. Frontend (Next.js) ───────────────────────────────────────────────
-header "7 · Frontend (dashboard)"
+# ── 8. Frontend (Next.js) ────────────────────────────────────────────────────
+header "8 · Frontend (dashboard)"
 
 if ! command -v node &>/dev/null; then
     warn "Node.js no encontrado — el dashboard no se podra compilar."
@@ -183,21 +218,36 @@ else
     success "Node.js $NODE_VERSION encontrado"
 
     if [ -d "frontend" ]; then
-        info "Instalando dependencias del frontend..."
         cd frontend
-        npm install --legacy-peer-deps 2>&1 | tail -1
-        success "Dependencias del frontend instaladas"
 
-        info "Compilando dashboard (npm run build)..."
-        npm run build 2>&1 | tail -3
-        success "Dashboard compilado — listo para produccion"
+        # Copy .env.local from example if missing
+        if [ ! -f ".env.local" ] && [ -f ".env.local.example" ]; then
+            cp .env.local.example .env.local
+            success ".env.local created from example"
+        fi
+
+        info "Installing frontend dependencies..."
+        if npm install --legacy-peer-deps; then
+            success "Frontend dependencies installed"
+        else
+            error "npm install failed — check the output above"
+            exit 1
+        fi
+
+        info "Building dashboard (npm run build)..."
+        if npm run build; then
+            success "Dashboard built — ready for production"
+        else
+            error "npm run build failed — check the output above"
+            exit 1
+        fi
         cd "$SCRIPT_DIR"
     else
-        warn "Carpeta frontend/ no encontrada — salta este paso"
+        warn "frontend/ folder not found — skipping"
     fi
 fi
 
-# ── 8. Resumen final ─────────────────────────────────────────────────────────
+# ── 9. Summary ───────────────────────────────────────────────────────────────
 header "═══════════════════════════════════════"
 success "Instalacion completada"
 header "═══════════════════════════════════════"

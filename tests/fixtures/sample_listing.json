@@ -1,0 +1,58 @@
+{
+  "ad": {
+    "id": "999888777",
+    "description": "Gran nave industrial reformada con oficinas y zona de carga",
+    "price": {
+      "cashPrice": {
+        "value": 450000,
+        "currency": "EUR"
+      }
+    },
+    "sellType": "supply",
+    "sellerType": {
+      "value": "professional",
+      "isPrivate": false
+    },
+    "author": {
+      "id": "u-seller-1",
+      "userName": "Naves Express SL"
+    },
+    "location": {
+      "city": {"name": "Getafe"},
+      "province": {"name": "Madrid"},
+      "geolocation": {"latitude": 40.31, "longitude": -3.73}
+    },
+    "attributes": [
+      {"type": "squareMeters", "value": "2500"},
+      {"type": "squareMeterPrice", "value": "180"}
+    ],
+    "categories": [
+      {"slug": "venta-naves", "name": "Venta Naves"},
+      {"slug": "naves-industriales", "name": "Naves Industriales"}
+    ],
+    "images": [
+      "https://cdn.milanuncios.com/img1.jpg",
+      "https://cdn.milanuncios.com/img2.jpg"
+    ],
+    "publicationDate": "2025-03-10T08:00:00Z",
+    "updateDate": "2025-03-15T12:30:00Z",
+    "rooms": null,
+    "bathrooms": 3,
+    "tags": [
+      {"type": "feature", "text": "Puente grua"},
+      {"type": "feature", "text": "Altillo"}
+    ],
+    "extras": [],
+    "legalAttributes": []
+  },
+  "shop": {
+    "name": "Naves Express SL",
+    "phone1": "911234567",
+    "phone2": null,
+    "url": "/profesionales/naves-express/",
+    "address": "Calle Industrial 5",
+    "zipcode": "28901",
+    "locality": "Getafe",
+    "province": "Madrid"
+  }
+}

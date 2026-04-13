@@ -60,7 +60,7 @@ export function RunForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="max_pages">Paginas maximas</Label>
+        <Label htmlFor="max_pages">Páginas máximas</Label>
         <Input
           id="max_pages"
           type="number"
@@ -68,7 +68,7 @@ export function RunForm() {
           {...register("max_pages", { valueAsNumber: true })}
           className="w-32"
         />
-        <p className="text-xs text-muted-foreground">0 = sin limite</p>
+        <p className="text-xs text-muted-foreground">0 = sin límite</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -84,7 +84,7 @@ export function RunForm() {
             checked={reset}
             onCheckedChange={(v) => setValue("reset", !!v)}
           />
-          Reiniciar desde pagina 1 (ignorar checkpoint)
+          Reiniciar desde página 1 (ignorar checkpoint)
         </label>
       </div>
 

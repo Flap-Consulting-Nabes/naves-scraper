@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useAuth } from "@/lib/auth-context";
 
 const schema = z.object({
-  password: z.string().min(1, "Introduce la contrasena"),
+  password: z.string().min(1, "Introduce la contraseña"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -30,7 +30,7 @@ export default function LoginPage() {
       await login(password);
       router.push("/resumen");
     } catch {
-      toast.error("Contrasena incorrecta");
+      toast.error("Contraseña incorrecta");
     }
   }
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
             <Lock className="size-5 text-primary" />
           </div>
           <CardTitle>Naves Scraper</CardTitle>
-          <CardDescription>Introduce la contrasena del dashboard</CardDescription>
+          <CardDescription>Introduce la contraseña del dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

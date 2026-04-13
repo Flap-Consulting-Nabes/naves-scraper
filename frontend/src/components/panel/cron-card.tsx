@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetcher, updateCron } from "@/lib/api";
+import { formatDate } from "@/lib/utils";
 import type { CronConfig } from "@/lib/types";
 
 const PRESETS = [
@@ -69,7 +70,7 @@ export function CronCard() {
   async function onSubmit(values: FormValues) {
     try {
       await updateCron(values);
-      toast.success("Programacion actualizada.");
+      toast.success("Programación actualizada.");
       mutate();
     } catch (e) {
       toast.error((e as Error).message);
@@ -79,7 +80,7 @@ export function CronCard() {
   return (
     <Card>
       <CardHeader className="border-b pb-3">
-        <CardTitle>Programacion</CardTitle>
+        <CardTitle>Programación</CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -100,7 +101,7 @@ export function CronCard() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="cron_expr">Expresion cron</Label>
+            <Label htmlFor="cron_expr">Expresión cron</Label>
             <Input id="cron_expr" {...register("cron_expr")} placeholder="0 6 * * *" />
             <p className="text-xs text-muted-foreground">
               Formato: minuto hora dia-mes mes dia-semana (zona: Europe/Madrid)
@@ -108,7 +109,7 @@ export function CronCard() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="max_pages">Paginas maximas</Label>
+            <Label htmlFor="max_pages">Páginas máximas</Label>
             <Input
               id="max_pages"
               type="number"
@@ -116,12 +117,12 @@ export function CronCard() {
               {...register("max_pages", { valueAsNumber: true })}
               className="w-32"
             />
-            <p className="text-xs text-muted-foreground">0 = sin limite</p>
+            <p className="text-xs text-muted-foreground">0 = sin límite</p>
           </div>
 
           {config?.next_run && (
             <p className="text-sm text-muted-foreground">
-              Proxima ejecucion: <strong>{config.next_run}</strong>
+              Próxima ejecución: <strong>{formatDate(config.next_run)}</strong>
             </p>
           )}
 

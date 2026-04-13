@@ -44,7 +44,7 @@ export function LogsPanel({ isActive }: LogsPanelProps) {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Label htmlFor="log-limit" className="text-sm">Lineas</Label>
+              <Label htmlFor="log-limit" className="text-sm">Líneas</Label>
               <Input
                 id="log-limit"
                 type="number"

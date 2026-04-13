@@ -4,6 +4,7 @@ Gestiona el schema, la deduplicación y las operaciones CRUD.
 """
 import json
 import logging
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,13 +90,26 @@ _NEW_COLUMNS = [
 ]
 
 
+_VALID_COL_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+_ALLOWED_TYPES = {"TEXT", "REAL", "INTEGER", "TIMESTAMP", "BLOB"}
+
+
+def _safe_add_column(conn: sqlite3.Connection, col: str, typ: str) -> None:
+    """Validates column name/type before issuing ALTER TABLE to prevent SQL injection."""
+    if not _VALID_COL_RE.match(col):
+        raise ValueError(f"Invalid column name: {col!r}")
+    if typ.upper() not in _ALLOWED_TYPES:
+        raise ValueError(f"Invalid column type: {typ!r}")
+    conn.execute(f"ALTER TABLE listings ADD COLUMN {col} {typ}")
+
+
 def _migrate_db(conn: sqlite3.Connection) -> None:
     """Añade columnas nuevas a una BD existente sin perder datos."""
     existing = {row[1] for row in conn.execute("PRAGMA table_info(listings)")}
     added = []
     for col, typ in _NEW_COLUMNS:
         if col not in existing:
-            conn.execute(f"ALTER TABLE listings ADD COLUMN {col} {typ}")
+            _safe_add_column(conn, col, typ)
             added.append(col)
     if added:
         conn.commit()

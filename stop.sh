@@ -1,5 +1,5 @@
 #!/bin/bash
-# Detiene API y frontend.
+# Stops API, frontend, and VNC services.
 
 cd "$(dirname "$0")"
 
@@ -11,20 +11,21 @@ stop_service() {
         pid=$(cat "$pidfile")
         if kill -0 "$pid" 2>/dev/null; then
             kill "$pid"
-            echo "[OK] $name detenido (PID $pid)"
+            echo "[OK] $name stopped (PID $pid)"
         else
-            echo "[INFO] $name no estaba en marcha (PID $pid ya muerto)"
+            echo "[INFO] $name was not running (PID $pid already dead)"
         fi
         rm -f "$pidfile"
     else
-        echo "[INFO] $name: no se encontro $pidfile"
+        echo "[INFO] $name: $pidfile not found"
     fi
 }
 
-stop_service "API"      logs/api.pid
-stop_service "Frontend" logs/frontend.pid
+stop_service "API"         logs/api.pid
+stop_service "Frontend"    logs/frontend.pid
 
-# Detener servicios VNC y WM (arrancados por run_api.sh)
-stop_service "x11vnc"     logs/x11vnc.pid
+# VNC / display services started by run_api.sh
+stop_service "x11vnc"      logs/x11vnc.pid
 stop_service "websockify"  logs/websockify.pid
-pkill -f "fluxbox" 2>/dev/null && echo "[OK] Fluxbox detenido" || true
+stop_service "Fluxbox"     logs/fluxbox.pid
+stop_service "Xvfb"        logs/xvfb.pid

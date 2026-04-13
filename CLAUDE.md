@@ -68,6 +68,7 @@ Mac: Chrome on real display, VNC services not started, panel hidden.
 | Parser | `integrations/parser.py` | Extracts 30+ fields from `__INITIAL_PROPS__` JSON; fallback: CSS + regex |
 | Database | `db.py` | SQLite WAL, 30+ columns, INSERT OR IGNORE, auto-migration via `_NEW_COLUMNS` |
 | Scheduler | `scheduler.py` | APScheduler → `scheduler.db`, default `0 6 * * *` Europe/Madrid |
+| Logging config | `utils/logging_config.py` | Centralized `setup_logging()` — console + rotating error file + optional full file log |
 
 ### Print Marker Protocol (stdout → `api/scraper_job.py`)
 
@@ -82,6 +83,16 @@ Session: `[LOGIN_WAITING]`, `[SESSION_SAVED]`, `[SESSION_TIMEOUT]`
 | `SessionExpiredException` | Redirect to `/login` | Exit; user runs `save_session.py` |
 | `ListingNotFoundException` | 404 | Skip listing, continue |
 | `CaptchaRequiredException` | F5/Incapsula, GeeTest | Pause up to 10 min, keep Chrome open for user |
+
+### Logging Architecture
+
+| Log file | Written by | Level | Rotation |
+|----------|-----------|-------|----------|
+| `logs/scraper.log` | `scraper_engine.py` (CLI) + `api/scraper_job.py` (subprocess monitor) | ALL | 10MB, 5 backups |
+| `logs/errors.log` | `scraper_engine.py` (CLI) + `api/scraper_job.py` (error detection from subprocess) | ERROR+ | 5MB, 10 backups |
+| `logs/api_errors.log` | `api/main.py` (API process) | ERROR+ | 5MB, 10 backups |
+
+Config: `utils/logging_config.py` — `setup_logging()` entry point. CLI mode auto-detects TTY for full file log. API mode uses `api_mode=True`. Error detection uses keyword matching (`is_error_line()`).
 
 ---
 
@@ -107,6 +118,17 @@ python scraper_engine.py --reset                # Ignore checkpoint
 
 ---
 
+## Testing
+
+```bash
+python3 -m pytest tests/ -v          # Full suite (112 tests)
+python3 -m pytest tests/test_db.py   # Single module
+```
+
+Test files: `test_api_endpoints.py`, `test_db.py`, `test_parser.py`, `test_slugify.py`, `test_checkpoint.py`, `test_jitter.py`, `test_task_registry.py`, `test_webflow_client.py`, `test_security.py`, `test_logging.py`. Shared fixtures in `tests/conftest.py`. Sample JSON payload in `tests/fixtures/sample_listing.json`.
+
+---
+
 ## Documentation Map
 
 | Doc | Content |
@@ -114,8 +136,7 @@ python scraper_engine.py --reset                # Ignore checkpoint
 | `docs/frontend.md` | Full Next.js dashboard architecture and components |
 | `docs/vnc-chrome-viewer.md` | VNC Chrome remote panel setup and architecture |
 | `docs/init_milanuncios.md` | Setup notes and lessons from previous projects |
-| `docs/plans/slug-system.md` | Title-based unique slug contract (page slug + image filenames) |
-| `docs/plans/image-compression.md` | WebP compression (q=80, max 1200px) + Webflow asset re-upload fix |
+| `docs/setup-guide.html` | User-facing installation guide (non-technical, Spanish UI) |
 
 ---
 
@@ -132,6 +153,8 @@ python scraper_engine.py --reset                # Ignore checkpoint
 **Slug generation:** Title-based unique slugs live in `utils/slugify.py` (`slugify_title` + `generate_unique_slug`). New listings compute their slug in `scraper_engine.run()` before `insert_listing()`; the same value feeds Webflow page slugs and local image filenames. One-shot back-fill: `python scripts/migrate_slugs.py --dry-run`. See `docs/plans/slug-system.md`.
 
 **Image compression:** `utils/image_compressor.compress_to_webp()` (q=80, max 1200px, Pillow, LANCZOS) is called from `utils/image_downloader.py` on every scraped photo — filenames are always `{slug}-image-{i}.webp`. Back-fill existing files + re-upload to Webflow Assets CDN: `python scripts/migrate_images.py --dry-run`. Phase G requires `WEBFLOW_TOKEN` with `assets:read` / `assets:write` (auth probe aborts with exit code 2 otherwise). See `docs/plans/image-compression.md`.
+
+**Adding tests:** New test in `tests/test_<module>.py`. Use `mem_db` fixture for DB tests, `sample_listing` for insert tests, FastAPI `TestClient` with `get_db` override for endpoint tests. Run `python3 -m pytest tests/ -v` to verify.
 
 **Webflow locale:** All CMS items are created with the Spanish `cmsLocaleId` (auto-discovered from `GET /sites/{siteId}`). `webflow_client.resolve_spanish_locale_id()` finds the locale by `tag` starting with `es`. Back-fill existing items: `python scripts/backfill_locale.py --dry-run`.
 

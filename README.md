@@ -31,7 +31,7 @@ bash start.sh                                  # Start API + Dashboard in backgr
 
 Dashboard: **http://localhost:3000** (login with `DASHBOARD_PASSWORD` from `.env`)
 
-> For a step-by-step interactive guide (in Spanish), open `setup-guide.html` in your browser.
+> For a step-by-step interactive guide (in Spanish), open `docs/setup-guide.html` in your browser.
 
 ## Prerequisites
 
@@ -153,7 +153,7 @@ MilAnuncios session cookies expire after ~30 minutes of inactivity. When expired
 
 | Document | Content |
 |----------|---------|
-| `setup-guide.html` | Interactive installation guide (Spanish) |
+| `docs/setup-guide.html` | Interactive installation guide (Spanish) |
 | `docs/frontend.md` | Dashboard architecture and components |
 | `docs/vnc-chrome-viewer.md` | VNC Chrome remote panel setup |
 | `docs/init_milanuncios.md` | Technical notes and lessons learned |

@@ -39,7 +39,7 @@ export function CaptchaModal({
             Captcha detectado
           </DialogTitle>
           <DialogDescription className="text-center">
-            El scraper ha encontrado un captcha que requiere resolucion manual.
+            El scraper ha encontrado un captcha que requiere resolución manual.
             Abre Chrome para resolver el captcha y continuar el scraping.
           </DialogDescription>
         </DialogHeader>
@@ -65,7 +65,7 @@ export function CaptchaModal({
             ) : (
               <RefreshCw className="size-4" />
             )}
-            Parar y renovar sesion
+            Parar y renovar sesión
           </Button>
         </DialogFooter>
       </DialogContent>

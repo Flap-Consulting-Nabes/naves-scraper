@@ -25,7 +25,7 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const wsUrl = typeof window !== "undefined"
-    ? `ws://${window.location.hostname}:${wsPort}`
+    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${wsPort}`
     : "";
 
   const handleConnect = useCallback(() => {
@@ -38,7 +38,7 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
   }, []);
 
   const handleError = useCallback(() => {
-    setError("Could not connect to Chrome panel. Verify x11vnc and websockify are running.");
+    setError("No se pudo conectar al panel Chrome. Verifica que x11vnc y websockify estan activos.");
     setConnected(false);
   }, []);
 
@@ -131,7 +131,7 @@ export function ChromePopup({ open, onOpenChange, wsPort }: ChromePopupProps) {
             <Monitor style={{ width: 16, height: 16 }} />
             <span style={{ fontSize: "16px", fontWeight: 500 }}>Chrome remoto</span>
             {connected && (
-              <span style={{ fontSize: "12px", color: "#059669" }}>connected</span>
+              <span style={{ fontSize: "12px", color: "#059669" }}>conectado</span>
             )}
           </div>
           <button

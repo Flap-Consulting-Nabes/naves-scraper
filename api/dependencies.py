@@ -4,6 +4,7 @@ Dependencias compartidas para FastAPI:
   - Verificación de API key
   - Lectura/escritura de config.json
 """
+import hmac
 import json
 import os
 import sqlite3
@@ -44,7 +45,7 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
 def verify_api_key(x_api_key: str = Header(...)) -> None:
     if not API_SECRET_KEY:
         raise HTTPException(status_code=500, detail="API_SECRET_KEY no configurada en .env")
-    if x_api_key != API_SECRET_KEY:
+    if not hmac.compare_digest(x_api_key, API_SECRET_KEY):
         raise HTTPException(status_code=403, detail="API key inválida")
 
 

@@ -1,5 +1,6 @@
 "use client";
 
+import useSWR from "swr";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { fetcher } from "@/lib/api";
 
 export interface ListingFilters {
   province: string;
@@ -19,11 +21,9 @@ export interface ListingFilters {
   page: number;
 }
 
-const PROVINCES = [
-  "Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao",
-  "Zaragoza", "Malaga", "Murcia", "Alicante", "Valladolid",
-  "Tarragona", "Girona", "Toledo", "Guadalajara", "Cuenca",
-];
+interface ProvincesResponse {
+  provinces: string[];
+}
 
 interface Props {
   filters: ListingFilters;
@@ -31,6 +31,14 @@ interface Props {
 }
 
 export function ListingsFilters({ filters, onChange }: Props) {
+  const { data } = useSWR<ProvincesResponse>(
+    "/api/listings/provinces",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const provinces = data?.provinces ?? [];
+
   function reset() {
     onChange({ province: "", min_surface: "", max_price: "", page: 1 });
   }
@@ -51,7 +59,7 @@ export function ListingsFilters({ filters, onChange }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Todas</SelectItem>
-            {PROVINCES.map((p) => (
+            {provinces.map((p) => (
               <SelectItem key={p} value={p}>{p}</SelectItem>
             ))}
           </SelectContent>

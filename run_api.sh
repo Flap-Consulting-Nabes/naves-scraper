@@ -9,17 +9,21 @@
 if command -v Xvfb &>/dev/null; then
     if ! pgrep -f "Xvfb :99" > /dev/null 2>&1; then
         Xvfb :99 -screen 0 1920x1080x24 -ac &
+        XVFB_PID=$!
         sleep 1
-        echo "[run_api] Xvfb iniciado en :99 — Chrome del scraper correra en background"
+        mkdir -p logs
+        echo "$XVFB_PID" > logs/xvfb.pid
+        echo "[run_api] Xvfb iniciado en :99 (PID $XVFB_PID)"
     else
         echo "[run_api] Xvfb :99 ya estaba corriendo"
     fi
     # Fluxbox: window manager minimo para que --start-maximized funcione en Xvfb
     if command -v fluxbox &>/dev/null; then
         if ! pgrep -f "fluxbox" > /dev/null 2>&1; then
-            # Config: Chrome sin decoraciones (sin barra titulo ni bordes) y auto-maximizado
+            # Config: Chrome without decorations and auto-maximized in Xvfb
             mkdir -p ~/.fluxbox
-            cat > ~/.fluxbox/apps <<'FLUXCONF'
+            if ! grep -q "name=google-chrome" ~/.fluxbox/apps 2>/dev/null; then
+                cat >> ~/.fluxbox/apps <<'FLUXCONF'
 [app] (name=google-chrome)
   [Maximized] {yes}
   [Deco] {NONE}
@@ -29,9 +33,12 @@ if command -v Xvfb &>/dev/null; then
   [Deco] {NONE}
 [end]
 FLUXCONF
+            fi
             DISPLAY=:99 fluxbox &
+            FLUXBOX_PID=$!
             sleep 0.5
-            echo "[run_api] Fluxbox iniciado (Chrome sin decoraciones, auto-maximizado)"
+            echo "$FLUXBOX_PID" > logs/fluxbox.pid
+            echo "[run_api] Fluxbox iniciado (PID $FLUXBOX_PID)"
         else
             echo "[run_api] Fluxbox ya estaba corriendo"
         fi
@@ -89,4 +96,4 @@ fi
 
 mkdir -p logs
 
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
+exec uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1

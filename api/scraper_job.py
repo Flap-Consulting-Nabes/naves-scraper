@@ -16,16 +16,16 @@ import signal
 import sys
 import time
 from datetime import datetime, timezone
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Literal, TypedDict
+
+from api.task_registry import fire_and_track
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 STATUS_FILE = PROJECT_ROOT / "scraper_status.json"
 SESSION_STATUS_FILE = PROJECT_ROOT / "session_status.json"
-LOG_FILE = PROJECT_ROOT / "logs" / "scraper.log"
 
 # Proceso activo (módulo-level, compartido en el proceso FastAPI)
 _proc: asyncio.subprocess.Process | None = None
@@ -146,13 +146,7 @@ def recover_stale_status() -> None:
 
 # ── Logging del subproceso ────────────────────────────────────────────────────
 
-def _get_log_handler() -> RotatingFileHandler:
-    LOG_FILE.parent.mkdir(exist_ok=True)
-    handler = RotatingFileHandler(
-        str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
-    )
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    return handler
+from utils.logging_config import get_error_log_handler, get_scraper_log_handler, is_error_line
 
 
 async def _webflow_sync_bg() -> None:
@@ -168,7 +162,8 @@ async def _webflow_sync_bg() -> None:
 
 async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
     """Lee stdout del subproceso, parsea progreso y escribe en el log rotativo."""
-    log_handler = _get_log_handler()
+    log_handler = get_scraper_log_handler()
+    error_handler = get_error_log_handler()
     status = read_status()
     _last_sync_time: float = 0.0
     _SYNC_DEBOUNCE_SECS = 60
@@ -178,12 +173,16 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
         line = raw_line.decode("utf-8", errors="replace").rstrip()
 
         # Escribir en log rotativo
+        is_error = is_error_line(line)
+        log_level = logging.ERROR if is_error else logging.INFO
         record = logging.LogRecord(
-            name="scraper", level=logging.INFO,
+            name="scraper", level=log_level,
             pathname="", lineno=0, msg=line,
             args=(), exc_info=None,
         )
         log_handler.emit(record)
+        if is_error:
+            error_handler.emit(record)
 
         # Parsear métricas del output del scraper
         if "PÁGINA" in line or "Página" in line:
@@ -200,7 +199,7 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
                 now = time.monotonic()
                 if int(m.group(1)) > 0 and now - _last_sync_time >= _SYNC_DEBOUNCE_SECS:
                     _last_sync_time = now
-                    asyncio.create_task(_webflow_sync_bg())
+                    fire_and_track(_webflow_sync_bg(), name="webflow-auto-sync")
         elif "Duplicados" in line or "saltados" in line.lower():
             import re
             m = re.search(r"(\d+)\s*$", line)  # último número (evita capturar timestamp)
@@ -228,6 +227,7 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
         _write_status(status)
 
     log_handler.close()
+    error_handler.close()
 
     rc = await proc.wait()
     status = read_status()
@@ -246,9 +246,9 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
     _write_status(status)
     logger.info("[Scraper] Proceso terminado con código %s → estado=%s", rc, status["state"])
 
-    # Sync final de Webflow (por si quedan pendientes de la ultima pagina)
+    # Final Webflow sync (in case last page left pending items)
     if rc == 0:
-        asyncio.create_task(_webflow_sync_bg())
+        fire_and_track(_webflow_sync_bg(), name="webflow-final-sync")
 
 
 # ── Lanzar / detener ──────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ async def launch_scraper(
         _write_status(status)
         logger.info("[Scraper] Lanzado PID %s: %s", _proc.pid, " ".join(cmd))
 
-        asyncio.create_task(_monitor_proc(_proc))
+        fire_and_track(_monitor_proc(_proc), name="scraper-monitor")
         return True
 
 

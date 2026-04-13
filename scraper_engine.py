@@ -32,16 +32,10 @@ from integrations.parser import parse_listing_id
 from utils.csv_logger import CSVLogger
 from utils.image_downloader import download_images
 from utils.jitter import random_delay
+from utils.logging_config import setup_logging
 from utils.slugify import generate_unique_slug
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("scraper.log", encoding="utf-8"),
-    ],
-)
+setup_logging(include_file_log=True)
 logger = logging.getLogger(__name__)
 
 BAN_COOLDOWNS = [600, 1200, 2400, 3600]   # 10 → 20 → 40 → 60 min
@@ -163,7 +157,7 @@ async def run(
                     if dry_run:
                         logger.info(f"[DRY-RUN] {listing_id} — {url}")
                         csv_log.log(listing_id, url, "", "", "", "", "dry_run")
-                        random_delay(0.5, 1.0)
+                        await random_delay(0.5, 1.0)
                         if batch_size and total_new + 1 > total_new:
                             total_new += 1
                             if total_new >= batch_size:
@@ -236,14 +230,14 @@ async def run(
                             stop_pagination = True
                             break
 
-                    random_delay(5.0, 12.0)
+                    await random_delay(5.0, 12.0)
 
                 if stop_pagination:
                     logger.info("Paginación detenida.")
                     break
 
                 page_num += 1
-                random_delay(3.0, 8.0)
+                await random_delay(3.0, 8.0)
 
             # --- Fin del loop de páginas ---
 
@@ -296,9 +290,15 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    asyncio.run(run(
-        max_pages=args.pages,
-        dry_run=args.dry_run,
-        reset=args.reset,
-        batch_size=args.batch,
-    ))
+    try:
+        asyncio.run(run(
+            max_pages=args.pages,
+            dry_run=args.dry_run,
+            reset=args.reset,
+            batch_size=args.batch,
+        ))
+    except KeyboardInterrupt:
+        logger.info("Scraper interrupted by user (Ctrl+C)")
+    except Exception:
+        logger.exception("Fatal unhandled exception — scraper crashed")
+        sys.exit(1)

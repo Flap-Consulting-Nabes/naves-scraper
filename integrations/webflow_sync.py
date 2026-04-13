@@ -166,6 +166,14 @@ async def sync_pending_listings() -> dict:
     Abre su propia conexión DB para no depender de la del endpoint.
     Retorna resumen {synced, failed, skipped}.
     """
+    from integrations.webflow_client import COLLECTION_ID, WEBFLOW_TOKEN
+
+    if not WEBFLOW_TOKEN or not COLLECTION_ID:
+        logger.warning(
+            "[Webflow] Sync skipped — WEBFLOW_TOKEN or WEBFLOW_COLLECTION_ID not configured"
+        )
+        return {"synced": 0, "failed": 0, "skipped": "unconfigured"}
+
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

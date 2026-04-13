@@ -8,7 +8,7 @@ const configs: Record<ScraperState, { label: string; classes: string }> = {
     classes: "bg-muted text-muted-foreground",
   },
   running: {
-    label: "En ejecucion",
+    label: "En ejecución",
     classes: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
   },
   error: {

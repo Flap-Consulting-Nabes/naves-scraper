@@ -5,8 +5,9 @@ Guarda el estado en checkpoint.json.
 import json
 import logging
 import os
+from pathlib import Path
 
-CHECKPOINT_FILE = "checkpoint.json"
+CHECKPOINT_FILE = str(Path(__file__).parent / "checkpoint.json")
 
 logger = logging.getLogger(__name__)
 

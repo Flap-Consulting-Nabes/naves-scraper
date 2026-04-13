@@ -38,7 +38,7 @@ venv/
 env/
 
 # Dev artifacts
-test_*.py
+/test_*.py
 plan-*.md
 plan_*.md
 .claude/
@@ -46,6 +46,8 @@ plan_*.md
 # Frontend build artifacts
 frontend/.next/
 frontend/node_modules/
+frontend/.env.local
+*.tsbuildinfo
 
 # IDE
 .idea/

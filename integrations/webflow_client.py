@@ -23,8 +23,14 @@ logger = logging.getLogger(__name__)
 
 WEBFLOW_BASE = "https://api.webflow.com/v2"
 WEBFLOW_TOKEN = os.getenv("WEBFLOW_TOKEN", "")
-COLLECTION_ID = os.getenv("WEBFLOW_COLLECTION_ID", "673373bb232280f5720b72ca")
+COLLECTION_ID = os.getenv("WEBFLOW_COLLECTION_ID", "")
 SITE_ID_ENV = os.getenv("WEBFLOW_SITE_ID", "")
+
+
+if not WEBFLOW_TOKEN:
+    logger.warning("[Webflow] WEBFLOW_TOKEN is empty — Webflow sync will be skipped")
+if not COLLECTION_ID:
+    logger.warning("[Webflow] WEBFLOW_COLLECTION_ID is empty — Webflow sync will be skipped")
 
 
 class WebflowClient:

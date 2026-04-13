@@ -48,6 +48,11 @@ async function put(path: string, body: unknown) {
     headers: getHeaders(),
     body: JSON.stringify(body),
   });
+  if (res.status === 401 || res.status === 403) {
+    removeApiKey();
+    window.location.href = "/login";
+    return;
+  }
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
     throw new Error((detail as { detail?: string })?.detail || `Error (${res.status})`);

@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import type { Listing, ListingsResponse } from "@/lib/types";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 
 interface Props {
   data: ListingsResponse | undefined;
@@ -62,7 +62,7 @@ export function ListingsTable({ data, isLoading, page, onPageChange }: Props) {
           ) : (
             listings.map((l: Listing) => (
               <TableRow key={l.listing_id}>
-                <TableCell className="max-w-xs truncate font-medium">{l.title}</TableCell>
+                <TableCell className="max-w-xs truncate font-medium">{l.title ?? "\u2014"}</TableCell>
                 <TableCell>{l.province ?? "—"}</TableCell>
                 <TableCell className="text-right">
                   {l.surface_m2 != null ? `${formatNumber(l.surface_m2)} m2` : "—"}
@@ -71,7 +71,7 @@ export function ListingsTable({ data, isLoading, page, onPageChange }: Props) {
                   {l.price_numeric != null ? formatCurrency(l.price_numeric) : "—"}
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  {l.published_at ?? "—"}
+                  {formatDate(l.published_at)}
                 </TableCell>
                 <TableCell>
                   {l.url && (
@@ -94,7 +94,7 @@ export function ListingsTable({ data, isLoading, page, onPageChange }: Props) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            Pagina {page} de {totalPages}
+            Página {page} de {totalPages}
           </span>
           <div className="flex gap-1">
             <Button

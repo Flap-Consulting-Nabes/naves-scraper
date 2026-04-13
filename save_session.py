@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 TARGET_URL = "https://www.milanuncios.com"
 MIS_ANUNCIOS_URL = "https://www.milanuncios.com/mis-anuncios/"
 NAVES_URL = "https://www.milanuncios.com/naves-industriales/?desde=1000&orden=date&pagina=1"
-OUTPUT_FILE = "session.json"
-PROFILE_DIR = os.path.abspath("chrome_profile")
+OUTPUT_FILE = str(Path(__file__).parent / "session.json")
+PROFILE_DIR = str(Path(__file__).parent / "chrome_profile")
 
 LOGIN_POLL_INTERVAL = 13   # segundos entre comprobaciones
 LOGIN_TIMEOUT = 600         # máximo 10 minutos esperando login
@@ -145,6 +145,15 @@ async def main() -> None:
     # ── Extraer y guardar cookies ──────────────────────────────────────────────
     cookies = await _extract_cookies(page)
     logger.info(f"Extraidas {len(cookies)} cookies.")
+
+    if not cookies:
+        logger.error("No cookies extracted — aborting to avoid writing empty session.json")
+        print("[SESSION_ERROR] No se extrajeron cookies. session.json NO fue modificado.", flush=True)
+        try:
+            await browser.stop()
+        except Exception:
+            pass
+        sys.exit(1)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(cookies, f, ensure_ascii=False, indent=2)

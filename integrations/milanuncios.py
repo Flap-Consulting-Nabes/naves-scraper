@@ -5,10 +5,12 @@ y mantiene un perfil Chrome persistente para acumular fingerprint de confianza.
 Todo el módulo es async — el entry point es scraper_engine.py via asyncio.run().
 """
 import asyncio
+import glob
 import logging
 import os
 import random
 import re
+import signal
 import subprocess
 import time
 from typing import Optional
@@ -103,23 +105,43 @@ async def get_browser() -> uc.Browser:
 
 
 def _kill_orphan_chromes() -> None:
-    """Mata procesos Chrome huérfanos y limpia lock files del perfil.
+    """Kill Chrome processes using OUR profile dir and clean up lock files.
 
-    Cuando el scraper crashea o es matado con SIGKILL, Chrome sobrevive y
-    mantiene el SingletonLock del perfil. La siguiente llamada a uc.start()
-    no puede crear una nueva instancia — Chrome detecta el lock y redirige
-    a la instancia existente (sin abrir puerto CDP nuevo), causando
-    "Failed to connect to browser".
+    Only targets Chrome instances launched with chrome_profile/ — never
+    kills the user's personal browser.  When the scraper crashes or is
+    SIGKILLed, Chrome survives and holds the SingletonLock.  The next
+    uc.start() cannot create a new instance, causing "Failed to connect
+    to browser".
     """
-    subprocess.run(["pkill", "-f", "chrome"], capture_output=True)
-    time.sleep(1)
-    for lock_file in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
-        path = os.path.join(PROFILE_DIR, lock_file)
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", f"chrome.*{os.path.basename(PROFILE_DIR)}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        pids = [int(p) for p in result.stdout.strip().split() if p.strip()]
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+        if pids:
+            time.sleep(1)
+            # Force-kill survivors
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+            logger.info("[Cleanup] Killed orphan Chrome PIDs: %s", pids)
+    except Exception as e:
+        logger.warning("[Cleanup] Error searching for orphan Chrome: %s", e)
+
+    for lock in glob.glob(os.path.join(PROFILE_DIR, "Singleton*")):
         try:
-            os.remove(path)
-        except FileNotFoundError:
+            os.remove(lock)
+        except OSError:
             pass
-    logger.info("[Cleanup] Procesos Chrome huérfanos y lock files limpiados.")
+    logger.info("[Cleanup] Chrome lock files cleaned.")
 
 
 async def _start_browser() -> uc.Browser:

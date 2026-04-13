@@ -32,6 +32,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from api.dependencies import API_SECRET_KEY, DASHBOARD_PASSWORD, DB_PATH, get_config, get_db, save_config, verify_api_key
+from utils.logging_config import setup_logging
+
+setup_logging(api_mode=True)
 from api.scraper_job import (
     launch_scraper, read_status, recover_stale_status, recover_stale_session_status, stop_scraper,
 )
@@ -41,6 +44,7 @@ from db import get_listings_paginated, init_db
 logger = logging.getLogger(__name__)
 
 LOG_FILE = Path("logs/scraper.log")
+ERROR_LOG_FILE = Path("logs/errors.log")
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -63,6 +67,10 @@ async def lifespan(app: FastAPI):
     logger.info("[API] Scheduler iniciado")
 
     yield
+
+    # Drain tracked async tasks before shutting down
+    from api.task_registry import drain
+    await drain(timeout=30.0)
 
     scheduler.shutdown(wait=False)
     logger.info("[API] Scheduler detenido")
@@ -182,6 +190,14 @@ async def get_listings(
     }
 
 
+@app.get("/api/listings/provinces", dependencies=[Depends(verify_api_key)], tags=["datos"])
+async def get_provinces(conn: sqlite3.Connection = Depends(get_db)):
+    rows = conn.execute(
+        "SELECT DISTINCT province FROM listings WHERE province IS NOT NULL AND province != '' ORDER BY province"
+    ).fetchall()
+    return {"provinces": [r[0] for r in rows]}
+
+
 # ── Logs ──────────────────────────────────────────────────────────────────────
 
 @app.get("/api/logs", dependencies=[Depends(verify_api_key)], tags=["sistema"])
@@ -193,6 +209,17 @@ async def get_logs(lines: int = Query(200, ge=10, le=1000)):
         for line in f:
             dq.append(line.rstrip())
     return {"lines": list(dq), "file": str(LOG_FILE)}
+
+
+@app.get("/api/logs/errors", dependencies=[Depends(verify_api_key)], tags=["sistema"])
+async def get_error_logs(lines: int = Query(200, ge=10, le=1000)):
+    if not ERROR_LOG_FILE.exists():
+        return {"lines": [], "file": str(ERROR_LOG_FILE)}
+    dq: collections.deque[str] = collections.deque(maxlen=lines)
+    with ERROR_LOG_FILE.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            dq.append(line.rstrip())
+    return {"lines": list(dq), "file": str(ERROR_LOG_FILE)}
 
 
 # ── Cron ──────────────────────────────────────────────────────────────────────
@@ -282,8 +309,9 @@ async def vnc_status():
 
 @app.post("/api/webflow/sync", dependencies=[Depends(verify_api_key)], tags=["webflow"])
 async def webflow_sync():
+    from api.task_registry import fire_and_track
     from integrations.webflow_sync import sync_pending_listings
-    asyncio.create_task(sync_pending_listings())
+    fire_and_track(sync_pending_listings(), name="webflow-manual-sync")
     return {"status": "sync_iniciado"}
 
 
