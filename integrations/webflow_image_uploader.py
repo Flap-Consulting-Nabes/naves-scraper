@@ -20,6 +20,7 @@ mandated by CLAUDE.md rule 2.
 """
 import json
 import logging
+import time
 from pathlib import Path
 
 from integrations.cloudinary_client import upload_image as cloudinary_upload
@@ -29,7 +30,11 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
-MAX_IMAGES_PER_LISTING = 10
+# Iteración 2026-05 (Tarea 3): raised from 10 to 20 so the additional-images
+# field can hold the "long tail" of photos beyond the main + top4 (5 in
+# `all-images`). 20 caps the worst-case upload time at ~80 s/listing assuming
+# 4 s per image with the triple-fallback chain.
+MAX_IMAGES_PER_LISTING = 20
 
 
 async def upload_listing_images(
@@ -63,7 +68,9 @@ async def upload_listing_images(
         except (json.JSONDecodeError, TypeError):
             local_paths = []
 
-        for local_path in local_paths[:MAX_IMAGES_PER_LISTING]:
+        capped = local_paths[:MAX_IMAGES_PER_LISTING]
+        total_to_upload = len(capped)
+        for idx, local_path in enumerate(capped, start=1):
             full_path = (
                 local_path
                 if Path(local_path).is_absolute()
@@ -78,6 +85,7 @@ async def upload_listing_images(
             # the slug-based name for SEO.
             public_id = Path(full_path).stem
             hosted_url: str | None = None
+            t_start = time.monotonic()
 
             # 1) Webflow Assets API — native upload.
             try:
@@ -102,6 +110,10 @@ async def upload_listing_images(
 
             if hosted_url:
                 image_urls.append(hosted_url)
+                logger.info(
+                    "[Webflow] Image %d/%d uploaded in %.1fs (%s)",
+                    idx, total_to_upload, time.monotonic() - t_start, filename,
+                )
 
     # ── Step 3: raw remote URLs as a last-ditch fallback ─────────────────
     if not image_urls and photos_raw and photos_raw != "null":

@@ -9,6 +9,7 @@ Flujo de upload de imagen (requerido por v2):
 Crear item como draft:
   POST /collections/{collectionId}/items  body: {isDraft:true, fieldData:{...}}
 """
+import asyncio
 import hashlib
 import logging
 import os
@@ -226,6 +227,44 @@ class WebflowClient:
         r.raise_for_status()
         item = r.json()
         return item.get("id", item.get("_id", ""))
+
+    async def list_items(
+        self,
+        cms_locale_id: str | None = None,
+        page_limit: int = 100,
+        throttle_seconds: float = 0.6,
+    ) -> list[dict]:
+        """List every item in the configured collection (drafts + published).
+
+        Iteración 2026-05 (Tarea 6): used by `webflow_sync` to build a
+        ``{source_url: item_id}`` dedup index before creating new items.
+
+        Webflow v2 caps each request at 100 items, so we paginate via
+        ``offset`` / ``limit``. ``throttle_seconds`` (default 0.6 s)
+        between requests stays inside the 60 req/min plan limit even on
+        collections with thousands of items.
+        """
+        results: list[dict] = []
+        offset = 0
+        while True:
+            params: dict = {"limit": page_limit, "offset": offset}
+            if cms_locale_id:
+                params["cmsLocaleId"] = cms_locale_id
+            r = await self._client.get(
+                f"/collections/{COLLECTION_ID}/items", params=params,
+            )
+            r.raise_for_status()
+            payload = r.json()
+            items = payload.get("items", [])
+            results.extend(items)
+            pagination = payload.get("pagination", {})
+            total = pagination.get("total", len(results))
+            if len(items) < page_limit or len(results) >= total:
+                break
+            offset += page_limit
+            await asyncio.sleep(throttle_seconds)
+        logger.info("[Webflow] list_items: fetched %d items", len(results))
+        return results
 
     async def update_items(
         self, updates: list[dict], cms_locale_id: str | None = None,
