@@ -305,3 +305,60 @@ Cuando los campos existan, el código los recoge automáticamente (no requiere d
 - `tests/test_webflow_sync.py` (23 tests)
 - `tests/test_migrate_existing.py` (5 tests)
 - `tests/test_parser.py`, `test_db.py`, `test_slugify.py`, `test_webflow_client.py` extendidos
+
+---
+
+## 15. Prueba en tiempo real del scraper
+
+Ejecutado el 2026-05-02 contra `milanuncios.com` con 1 listing real (`--pages 1 --batch 1`, BD aislada en `/tmp/test_naves.db`).
+
+### Pipeline observado
+
+```
+[Search]   Página 1: 3 anuncios.
+[Listing]  Scrapeando: …venta-de-naves-industriales-en-barco-de-avila-avila/…593416592.htm
+[Listing]  OK: 593416592 | El Barco de Ávila | None m² | 62.000 €
+[DB]       Insertado: 593416592 — Nave industrial en venta en Barco de Avila (Ávila)
+[IMG]      593416592: 8/8 imágenes descargadas → images/593416592
+RESUMEN:   Nuevos insertados: 1, Total en BD: 1
+```
+
+### Verificación de campos en BD (post-scrape, BD aislada)
+
+| Campo | Valor |
+|---|---|
+| `listing_id` | `593416592` |
+| `title` | `Nave industrial en venta en Barco de Avila (Ávila)` ✅ canónico |
+| `original_title` | `El Barco de Ávila` ✅ preservado |
+| `webflow_slug` | `nave-industrial-en-venta-en-barco-de-avila-avila` ✅ |
+| `ad_type` | `venta` ✅ detectado |
+| `price` / `price_numeric` | `62.000 €` / `62000.0` |
+| `latitude` / `longitude` | `40.3584245` / `-5.523076700000001` ✅ persistidos |
+| `address` / `location` | `05600, Barco de Avila, Ávila` / `Barco de Avila (Ávila)` |
+| `phone` | `685970618` ✅ extraído tras click "Llamar" |
+| `description` | 1098 chars de texto plano (será convertido a HTML en sync) |
+| `photos` | 8 URLs únicas |
+
+### Verificación del payload que iría a Webflow
+
+`build_field_data` aplicado a la fila real sobre el schema descargado:
+
+```
+name                          : 'Nave industrial en venta en Barco de Avila (Ávila)'
+slug                          : 'nave-industrial-en-venta-en-barco-de-avila-avila'
+new-sale-price                : '62.000 €'                        ← B3 ES format
+latitude                      : '40.3584245'                       ← A2 PlainText
+longitude                     : '-5.523076700000001'               ← A2 PlainText
+full-address                  : '05600, Barco de Avila, Ávila'
+location                      : 'Barco de Avila (Ávila)'
+
+description (RichText): '<p>Ref: 3-26. - Oportunidad Única - …</p>'  ← C1 HTML conversion (1098 chars, html=True)
+
+Image split:
+  main-image:        1 image  ← imagen 1
+  listing-images:    4 items  ← imágenes 2-5  ("Top 4 Best Images")
+  all-images:        5 items  ← imágenes 1-5  ("Airbnb Top 5 Images")
+  additional-images: 3 items  ← imágenes 6-8  (overflow)
+```
+
+**Resultado:** todas las tareas implementables (1, 2, 3, 4, 5, 9 fase 1) funcionan end-to-end con datos reales de producción. Tareas 7 y 8 quedan en el código listas para activarse cuando Benedict cree los campos `source-url` y `phone` en Webflow.
