@@ -40,6 +40,9 @@ CREATE TABLE IF NOT EXISTS listings (
     province           TEXT,
     address            TEXT,
     zipcode            TEXT,
+    latitude           REAL,
+    longitude          REAL,
+    original_title     TEXT,
 
     seller_type        TEXT,
     seller_name        TEXT,
@@ -87,6 +90,9 @@ _NEW_COLUMNS = [
     ("webflow_synced_at",       "TIMESTAMP"),
     ("webflow_slug",            "TEXT"),
     ("webflow_assets_synced_at", "TIMESTAMP"),
+    ("latitude",                 "REAL"),
+    ("longitude",                "REAL"),
+    ("original_title",           "TEXT"),
 ]
 
 
@@ -170,22 +176,22 @@ def insert_listing(conn: sqlite3.Connection, data: dict) -> bool:
                 price, price_numeric, price_per_m2,
                 surface_m2, rooms, bathrooms, floor, condition, energy_certificate, features,
                 ad_type, property_type,
-                location, province, address, zipcode,
+                location, province, address, zipcode, latitude, longitude,
                 seller_type, seller_name, seller_id, seller_url, phone, phone2,
                 photos,
                 published_at, updated_at, raw_html,
-                webflow_slug
+                webflow_slug, original_title
             ) VALUES (
                 :listing_id, :url, :reference,
                 :title, :description,
                 :price, :price_numeric, :price_per_m2,
                 :surface_m2, :rooms, :bathrooms, :floor, :condition, :energy_certificate, :features,
                 :ad_type, :property_type,
-                :location, :province, :address, :zipcode,
+                :location, :province, :address, :zipcode, :latitude, :longitude,
                 :seller_type, :seller_name, :seller_id, :seller_url, :phone, :phone2,
                 :photos,
                 :published_at, :updated_at, :raw_html,
-                :webflow_slug
+                :webflow_slug, :original_title
             )
             """,
             {
@@ -210,6 +216,8 @@ def insert_listing(conn: sqlite3.Connection, data: dict) -> bool:
                 "province":           data.get("province"),
                 "address":            data.get("address"),
                 "zipcode":            data.get("zipcode"),
+                "latitude":           data.get("latitude"),
+                "longitude":          data.get("longitude"),
                 "seller_type":        data.get("seller_type"),
                 "seller_name":        data.get("seller_name"),
                 "seller_id":          data.get("seller_id"),
@@ -221,6 +229,7 @@ def insert_listing(conn: sqlite3.Connection, data: dict) -> bool:
                 "updated_at":         data.get("updated_at"),
                 "raw_html":           data.get("raw_html"),
                 "webflow_slug":       data.get("webflow_slug"),
+                "original_title":     data.get("original_title"),
             },
         )
         conn.commit()
@@ -301,6 +310,7 @@ def get_listings_paginated(
         SELECT listing_id, url, title, description, price, price_numeric, price_per_m2,
                surface_m2, rooms, bathrooms, floor, condition, energy_certificate, features,
                ad_type, property_type, location, province, address, zipcode,
+               latitude, longitude,
                seller_type, seller_name, seller_id, seller_url, phone, phone2,
                photos, images_local, published_at, updated_at, scraped_at,
                webflow_item_id, webflow_synced_at
@@ -318,9 +328,11 @@ def get_unsynced_listings(conn: sqlite3.Connection) -> list[dict]:
     """Devuelve anuncios que aún no han sido enviados a Webflow."""
     rows = conn.execute(
         """
-        SELECT listing_id, url, title, description, price, price_numeric, price_per_m2,
+        SELECT listing_id, url, title, original_title, description,
+               price, price_numeric, price_per_m2,
                surface_m2, rooms, bathrooms, floor, condition, energy_certificate, features,
                ad_type, property_type, location, province, address, zipcode,
+               latitude, longitude,
                seller_type, seller_name, phone, phone2,
                photos, images_local, published_at, updated_at, webflow_slug
         FROM listings
@@ -353,6 +365,35 @@ def update_webflow_slug(
     )
     conn.commit()
     logger.debug(f"[DB] webflow_slug guardado para {listing_id}: {webflow_slug}")
+
+
+def update_canonical_title(
+    conn: sqlite3.Connection,
+    listing_id: str,
+    new_title: str,
+    new_slug: str,
+    original_title: str | None,
+) -> None:
+    """Replace title/slug with canonical values; preserve original_title when first set.
+
+    Iteración 2026-05 (Tarea 2). The COALESCE guarantees we don't overwrite
+    a previously stored original_title on a re-run.
+    """
+    conn.execute(
+        """
+        UPDATE listings
+        SET title = ?,
+            webflow_slug = ?,
+            original_title = COALESCE(original_title, ?)
+        WHERE listing_id = ?
+        """,
+        (new_title, new_slug, original_title, listing_id),
+    )
+    conn.commit()
+    logger.debug(
+        "[DB] canonical title applied for %s: %r → %r (slug=%s)",
+        listing_id, original_title, new_title, new_slug,
+    )
 
 
 def mark_webflow_assets_synced(

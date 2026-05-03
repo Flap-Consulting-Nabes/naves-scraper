@@ -46,6 +46,8 @@ def sample_listing():
         "province": "Valencia",
         "address": "Polígono Fuente del Jarro",
         "zipcode": "46988",
+        "latitude": 39.5021,
+        "longitude": -0.4396,
         "seller_type": "profesional",
         "seller_name": "Inmobiliaria Test",
         "seller_id": "u-abc123",

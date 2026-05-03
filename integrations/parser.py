@@ -558,8 +558,12 @@ def parse_dates(soup: BeautifulSoup, ad_json: dict | None = None) -> tuple[str |
 # ---------------------------------------------------------------------------
 
 def parse_ad_type(url: str, ad_json: dict | None = None) -> str | None:
-    """Detecta si el anuncio es de venta o alquiler."""
-    # Desde JSON categories
+    """Detecta si el anuncio es de venta o alquiler.
+
+    Source-of-truth precedence: JSON categories > JSON sellType > URL keyword.
+    Emits a WARNING when none of the signals are present so unmapped listings
+    are visible in the logs (Iteración 2026-05, Tarea 1).
+    """
     if ad_json:
         for cat in ad_json.get("categories", []):
             slug = cat.get("slug", "")
@@ -568,17 +572,16 @@ def parse_ad_type(url: str, ad_json: dict | None = None) -> str | None:
                 return "alquiler"
             if "venta" in slug or "venta" in name:
                 return "venta"
-        # sellType: "supply" = venta, "demand" = alquiler (aproximación)
         sell_type = ad_json.get("sellType", "")
         if sell_type == "supply":
             return "venta"
 
-    # Desde URL
     if "alquiler" in url.lower():
         return "alquiler"
     if "venta" in url.lower():
         return "venta"
 
+    logger.warning("[parser] ad_type undetectable for url=%s", url)
     return None
 
 
@@ -796,6 +799,7 @@ def parse_listing_page(url: str, html: str) -> dict:
     shop = props.get("shop", {})
 
     location, province = parse_location(soup, url, ad_json=ad)
+    latitude, longitude = parse_coordinates(ad)
     published_at, updated_at = parse_dates(soup, ad_json=ad)
 
     price_numeric = parse_price_numeric(ad)
@@ -839,6 +843,8 @@ def parse_listing_page(url: str, html: str) -> dict:
         "province": province,
         "address": parse_address(shop, soup),
         "zipcode": parse_zipcode(shop),
+        "latitude": latitude,
+        "longitude": longitude,
 
         # Vendedor
         "seller_type": parse_seller_type(soup, ad_json=ad),

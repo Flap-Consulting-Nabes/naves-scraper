@@ -23,6 +23,8 @@ from db import get_unsynced_listings, init_db, update_webflow_id
 from integrations.cloudinary_client import delete_images as cloudinary_delete_images
 from integrations.webflow_client import WebflowClient
 from integrations.webflow_image_uploader import upload_listing_images
+from utils.description_formatter import format_description_html
+from utils.price_formatter import format_price_display
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -51,6 +53,8 @@ FIELD_MAP_PATTERNS: dict[str, list[str]] = {
     "province":         ["province", "provincia", "comunidad"],
     "address":          ["full-address", "address", "direccion", "dirección", "calle"],
     "zipcode":          ["zipcode", "zip", "codigo-postal", "cp"],
+    "latitude":         ["latitude", "lat"],
+    "longitude":        ["longitude", "lng", "lon"],
     "seller_type":      ["seller-type", "tipo-vendedor", "tipo-anunciante"],
     "seller_name":      ["seller", "vendedor", "agencia", "anunciante", "empresa"],
     "phone":            ["phone", "telefono", "teléfono", "contacto"],
@@ -127,6 +131,12 @@ def build_field_data(
                 if "T" not in value:
                     value = value + "T00:00:00.000Z"
                 field_data[wf_slug] = value
+        elif ftype == "RichText" and db_field == "description":
+            # Iteración 2026-05, Tarea 4: convert raw text to HTML so the
+            # frontend renders paragraphs and bullet lists correctly.
+            html = format_description_html(str(value))
+            if html:
+                field_data[wf_slug] = html
         else:
             field_data[wf_slug] = str(value) if value is not None else None
 
@@ -138,26 +148,112 @@ def build_field_data(
     # `nave-{listing_id}` for legacy rows that have not been back-filled yet.
     field_data["slug"] = row.get("webflow_slug") or f"nave-{row.get('listing_id', '')}"
 
-    # Imágenes: campo Multi-image de Webflow
+    # Precio formateado según tipo (Iteración 2026-05, Tarea 5).
+    # Override the generic `str(price_numeric)` output with the locale-aware
+    # display string the client requested:
+    #   venta    → "199.000 €"  on `new-sale-price`
+    #   alquiler → "1.19€/m²"   on `new-price-sm2-month` (or `new-sale-price`
+    #              as a fallback if only the sale-price field exists).
+    ad_type = row.get("ad_type")
+    price_numeric = row.get("price_numeric")
+    price_per_m2 = row.get("price_per_m2")
+    formatted_price = format_price_display(ad_type, price_numeric, price_per_m2)
+    if formatted_price is not None:
+        available_slugs = {f.get("slug", "") for f in collection_fields}
+        if ad_type == "venta" and "new-sale-price" in available_slugs:
+            field_data["new-sale-price"] = formatted_price
+            # Sale price never goes in the per-m2/month field
+            field_data.pop("new-price-sm2-month", None)
+        elif ad_type == "alquiler":
+            if "new-price-sm2-month" in available_slugs:
+                field_data["new-price-sm2-month"] = formatted_price
+            elif "new-sale-price" in available_slugs:
+                field_data["new-sale-price"] = formatted_price
+            # Rent never goes in the sale-price field if both exist
+            if "new-price-sm2-month" in available_slugs:
+                field_data.pop("new-sale-price", None)
+
+    # Imágenes: split en 3 grupos según convención del cliente (Tarea 3).
+    #   main-image        = primera imagen deduplicada (tipo Image)
+    #   listing-images    = "Top 4 Best Images"   = imágenes 2..5
+    #   all-images        = "Airbnb Top 5 Images" = imágenes 1..5 (main + top4)
+    #   additional-images = el resto              = imágenes 6..N
+    # Dedup explícita (preserva orden original) antes de cualquier asignación.
     if image_urls:
-        # Detectar qué campos de imagen existen en la colección
+        seen: set[str] = set()
+        unique_urls: list[str] = []
+        for url in image_urls:
+            if url and url not in seen:
+                seen.add(url)
+                unique_urls.append(url)
+
         available_slugs = {f["slug"]: f.get("type") for f in collection_fields}
-        
-        # 1. Imagen principal (tipo Image, un solo objeto)
-        if "main-image" in available_slugs and available_slugs["main-image"] == "Image":
-            field_data["main-image"] = {"url": image_urls[0], "alt": field_data.get("name", "")}
-            
-        # 2. Galería de imágenes (tipo MultiImage, array de objetos)
-        multi_image_payload = [
-            {"url": url, "alt": field_data.get("name", "")}
-            for url in image_urls
-        ]
-        
-        for slug in ["listing-images", "all-images"]:
-            if slug in available_slugs and available_slugs[slug] == "MultiImage":
-                field_data[slug] = multi_image_payload
+        alt = field_data.get("name", "")
+
+        main = unique_urls[:1]
+        top_four_after_main = unique_urls[1:5]
+        airbnb_top_five = unique_urls[:5]
+        rest = unique_urls[5:]
+
+        if main and available_slugs.get("main-image") == "Image":
+            field_data["main-image"] = {"url": main[0], "alt": alt}
+
+        if available_slugs.get("listing-images") == "MultiImage":
+            field_data["listing-images"] = [
+                {"url": u, "alt": alt} for u in top_four_after_main
+            ]
+
+        if available_slugs.get("all-images") == "MultiImage":
+            field_data["all-images"] = [
+                {"url": u, "alt": alt} for u in airbnb_top_five
+            ]
+
+        if available_slugs.get("additional-images") == "MultiImage" and rest:
+            field_data["additional-images"] = [
+                {"url": u, "alt": alt} for u in rest
+            ]
 
     return field_data
+
+
+async def _build_source_url_index(
+    client: WebflowClient,
+    field_mapping: dict[str, str],
+    cms_locale_id: str | None,
+) -> dict[str, str]:
+    """Return {source_url: item_id} from existing Webflow items.
+
+    Empty when the collection has no `url`-style mapped slug — that's the
+    common case until Benedict creates the `source-url` field. We never
+    fail sync because of this; we just lose the Webflow-side dedup safety
+    net for that run.
+    """
+    source_slug = field_mapping.get("url")
+    if not source_slug:
+        logger.info(
+            "[Webflow] No source-url field mapped; skipping dedup index "
+            "(blocks Tarea 6 until the Webflow schema exposes it)."
+        )
+        return {}
+
+    try:
+        items = await client.list_items(cms_locale_id=cms_locale_id)
+    except Exception as e:
+        logger.warning(
+            "[Webflow] list_items failed; skipping dedup index this run: %s", e
+        )
+        return {}
+
+    index: dict[str, str] = {}
+    for item in items:
+        field_data = item.get("fieldData", {}) or {}
+        url = field_data.get(source_slug)
+        if url:
+            index[str(url).strip()] = item.get("id", "")
+    logger.info(
+        "[Webflow] Dedup index built: %d items with source-url", len(index)
+    )
+    return index
 
 
 async def sync_pending_listings() -> dict:
@@ -192,11 +288,33 @@ async def sync_pending_listings() -> dict:
             spanish_locale_id = await client.resolve_spanish_locale_id()
             locale_ids = [spanish_locale_id] if spanish_locale_id else None
 
+            # Iteración 2026-05 (Tarea 6): build a {source_url: item_id} dedup
+            # index from the existing CMS items so we can short-circuit
+            # creation when the listing was already synced (or exists as a
+            # leftover draft from a previous run). The index is a no-op when
+            # the schema does not expose a `source-url`-style slug yet.
+            source_url_index = await _build_source_url_index(
+                client, field_mapping, spanish_locale_id,
+            )
+
             rows = get_unsynced_listings(conn)
             logger.info("[Webflow] Iniciando sync: %d anuncios pendientes", len(rows))
 
             for row in rows:
                 listing_id = row.get("listing_id", "")
+                row_url = (row.get("url") or "").strip()
+
+                # Webflow-side dedup: if an existing item already references
+                # this listing's URL, adopt its item_id and skip creation.
+                if source_url_index and row_url and row_url in source_url_index:
+                    existing_id = source_url_index[row_url]
+                    update_webflow_id(conn, listing_id, existing_id)
+                    synced += 1
+                    logger.info(
+                        "[SKIP-WEBFLOW] %s ya existe como %s (source-url match)",
+                        listing_id, existing_id,
+                    )
+                    continue
 
                 # Image upload fallback chain: Webflow Assets → Cloudinary
                 # → raw MilAnuncios URLs. See webflow_image_uploader.py.

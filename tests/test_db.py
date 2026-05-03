@@ -115,3 +115,37 @@ class TestPagination:
         insert_listing(mem_db, sample_listing)
         rows, total = get_listings_paginated(mem_db, sort_by="DROP TABLE listings")
         assert total == 1  # query still works, didn't inject
+
+
+class TestCoordinates:
+    """Iteración 2026-05: latitude/longitude must round-trip through the DB."""
+
+    def test_latitude_longitude_columns_exist(self, mem_db):
+        cols = {row[1] for row in mem_db.execute("PRAGMA table_info(listings)")}
+        assert "latitude" in cols
+        assert "longitude" in cols
+
+    def test_insert_persists_coordinates(self, mem_db, sample_listing):
+        insert_listing(mem_db, sample_listing)
+        row = mem_db.execute(
+            "SELECT latitude, longitude FROM listings WHERE listing_id = ?",
+            (sample_listing["listing_id"],),
+        ).fetchone()
+        assert row["latitude"] == 39.5021
+        assert row["longitude"] == -0.4396
+
+    def test_insert_accepts_null_coordinates(self, mem_db, sample_listing):
+        data = {**sample_listing, "listing_id": "no-coords", "latitude": None, "longitude": None}
+        insert_listing(mem_db, data)
+        row = mem_db.execute(
+            "SELECT latitude, longitude FROM listings WHERE listing_id = ?",
+            ("no-coords",),
+        ).fetchone()
+        assert row["latitude"] is None
+        assert row["longitude"] is None
+
+    def test_pagination_returns_coordinates(self, mem_db, sample_listing):
+        insert_listing(mem_db, sample_listing)
+        rows, _ = get_listings_paginated(mem_db)
+        assert rows[0]["latitude"] == 39.5021
+        assert rows[0]["longitude"] == -0.4396
