@@ -362,3 +362,41 @@ Image split:
 ```
 
 **Resultado:** todas las tareas implementables (1, 2, 3, 4, 5, 9 fase 1) funcionan end-to-end con datos reales de producción. Tareas 7 y 8 quedan en el código listas para activarse cuando Benedict cree los campos `source-url` y `phone` en Webflow.
+
+---
+
+## 16. Segunda prueba en tiempo real (2026-05-03)
+
+Re-ejecutado el día siguiente con `--pages 1 --batch 2` contra `milanuncios.com` para confirmar reproducibilidad.
+
+**Notable:** esta vez el captcha de warm-up se resolvió **automáticamente en 14 s** (la prueba anterior requirió resolución manual). El comportamiento del antibot del sitio varía día a día — el sistema actual maneja ambos casos.
+
+### Listings procesados
+
+| listing_id | título canónico | precio | ubicación | lat/lng | phone |
+|---|---|---|---|---|---|
+| 592122863 | Nave industrial en venta en Sevilla (Sevilla) | 722.400 € | Sevilla | 37.39 / -5.95 | None |
+| 569614409 | Nave industrial en venta en Los Palacios y Villafranca (Sevilla) | 95.000 € | Los Palacios y Villafranca | 37.16 / -5.93 | 678574291 |
+
+Ambos:
+- ✅ Título canónico aplicado, `original_title` preservado.
+- ✅ Slug derivado del título canónico, sin colisiones.
+- ✅ `ad_type = "venta"` detectado por URL.
+- ✅ `latitude`/`longitude` extraídos del JSON.
+- ✅ `new-sale-price` formateado en ES (`722.400 €`, `95.000 €`).
+- ✅ Descripción convertida a `<p>...</p>` RichText.
+- ✅ Split de imágenes en 4 grupos (main + 4 + 5 + 3-4).
+
+### Notas operativas
+
+- **listing 592122863** no tenía `address` (shop sin dirección de calle); el helper `extract_warehouse_name` cayó al fallback `location` → `"Sevilla (Sevilla)"`. Confirma que la lógica location-first no rompe cuando address es None.
+- **listing 569614409** tenía address completo con `Calle Joaquín Romero Murube 17`; aun así, location se prefirió. Esto coincide con la decisión de diseño: location es la ciudad de la **propiedad**, address es la del vendedor (más ambigua).
+- **listing 592122863** no tenía `phone`: el botón "Llamar" no fue clicado o el shop JSON no expuso `phone1`. La lógica del scraper sigue siendo "best effort" — los nulls son normales.
+
+### Suite de tests final
+
+```
+============================= 193 passed in 1.93s ==============================
+```
+
+Sin regresiones tras toda la iteración.
