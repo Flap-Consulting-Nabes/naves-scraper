@@ -1,5 +1,10 @@
 """Tests for slug generation — unicode handling, collisions, edge cases."""
-from utils.slugify import generate_unique_slug, slugify_title
+from utils.slugify import (
+    build_canonical_title,
+    extract_warehouse_name,
+    generate_unique_slug,
+    slugify_title,
+)
 
 
 class TestSlugifyTitle:
@@ -78,3 +83,56 @@ class TestGenerateUniqueSlug:
         # When excluding own row, base slug should be available
         slug = generate_unique_slug(mem_db, "Nave en venta", "self", exclude_listing_id="self")
         assert slug == "nave-en-venta"
+
+
+# ─── Iteración 2026-05, Tarea 2: títulos canónicos ────────────────────────────
+class TestExtractWarehouseName:
+    def test_prefers_location_when_present(self):
+        data = {
+            "location": "Polígono Las Salinas (Cádiz)",
+            "address": "Calle Mayor 5, 28045, Madrid",
+        }
+        assert extract_warehouse_name(data) == "Polígono Las Salinas (Cádiz)"
+
+    def test_falls_back_to_address_when_no_location(self):
+        data = {"location": "", "address": "Calle Mayor 5, 28045, Madrid, Madrid"}
+        assert extract_warehouse_name(data) == "Calle Mayor 5"
+
+    def test_falls_back_to_address_with_polígono(self):
+        data = {"location": None, "address": "Polígono Industrial Norte, 41020, Sevilla"}
+        assert extract_warehouse_name(data) == "Polígono Industrial Norte"
+
+    def test_address_starting_with_cp_is_rejected(self):
+        # "28045, Madrid, Madrid" — no street, just CP+city
+        data = {"location": "", "address": "28045, Madrid, Madrid"}
+        assert extract_warehouse_name(data) is None
+
+    def test_address_without_street_keyword_is_rejected(self):
+        # No `calle`/`avda`/`polígono` in the string
+        data = {"location": "", "address": "Madrid, Madrid"}
+        assert extract_warehouse_name(data) is None
+
+    def test_both_empty_returns_none(self):
+        assert extract_warehouse_name({"location": "", "address": ""}) is None
+
+    def test_missing_keys_returns_none(self):
+        assert extract_warehouse_name({}) is None
+
+
+class TestBuildCanonicalTitle:
+    def test_venta(self):
+        assert build_canonical_title("venta", "Polígono Las Salinas") == \
+            "Nave industrial en venta en Polígono Las Salinas"
+
+    def test_alquiler(self):
+        assert build_canonical_title("alquiler", "Madrid") == \
+            "Nave industrial en alquiler en Madrid"
+
+    def test_unknown_ad_type_returns_none(self):
+        assert build_canonical_title("unknown", "Madrid") is None
+
+    def test_missing_inputs_return_none(self):
+        assert build_canonical_title(None, "Madrid") is None
+        assert build_canonical_title("venta", None) is None
+        assert build_canonical_title("venta", "") is None
+

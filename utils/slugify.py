@@ -9,10 +9,65 @@ single, stable slug per listing. The slug is reused as:
 Collision rule: the first duplicate gets `-2`, the next `-3`, and so on.
 An empty or unparseable title falls back to `nave-{listing_id}`, which is
 always unique because `listings.listing_id` is unique.
+
+Iteración 2026-05 (Tarea 2):
+The canonical title format requested by the client is
+`Nave industrial en {venta|alquiler} en {Name}` where `{Name}` is derived
+with `extract_warehouse_name` (location-first, address-with-street as
+fallback for extra specificity). `build_canonical_title` produces the
+title; `slugify_title` then turns it into the slug.
 """
+import logging
 import re
 import sqlite3
 import unicodedata
+
+logger = logging.getLogger(__name__)
+
+_STREET_KEYWORDS_RE = re.compile(
+    r"\b(calle|c/|avda|avenida|polígono|poligono|carretera|paseo|plaza|"
+    r"glorieta|ronda|camino|via|vía)\b",
+    re.IGNORECASE,
+)
+_STARTS_WITH_CP_RE = re.compile(r"^\d{4,5}")
+
+
+def extract_warehouse_name(data: dict) -> str | None:
+    """Return the {Name} component for the canonical title.
+
+    Resolution order:
+      1. `location` (city/polígono of the property — comes from the ad JSON)
+      2. `address` extended with the street fragment when it actually
+         contains a street keyword and does not start with a postal code.
+      3. None if neither is usable (caller should keep the original title).
+    """
+    address = (data.get("address") or "").strip()
+    location = (data.get("location") or "").strip()
+
+    if location:
+        return location
+
+    if address and not _STARTS_WITH_CP_RE.match(address) and _STREET_KEYWORDS_RE.search(address):
+        # Take only the street fragment up to the first comma/CP boundary.
+        street_part = re.split(r",\s*\d{4,5}|,\s*", address, maxsplit=1)[0]
+        street_part = street_part.strip()
+        if len(street_part) > 3:
+            return street_part
+
+    return None
+
+
+def build_canonical_title(ad_type: str | None, name: str | None) -> str | None:
+    """Return `Nave industrial en {venta|alquiler} en {Name}` or None.
+
+    Returns None when either input is missing so the caller can fall back
+    to the original scraped title rather than producing nonsense.
+    """
+    if not ad_type or not name:
+        return None
+    if ad_type not in ("venta", "alquiler"):
+        return None
+    return f"Nave industrial en {ad_type} en {name}"
 
 
 def slugify_title(title: str | None, listing_id: str, max_length: int = 75) -> str:

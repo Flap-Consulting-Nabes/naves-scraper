@@ -33,7 +33,11 @@ from utils.csv_logger import CSVLogger
 from utils.image_downloader import download_images
 from utils.jitter import random_delay
 from utils.logging_config import setup_logging
-from utils.slugify import generate_unique_slug
+from utils.slugify import (
+    build_canonical_title,
+    extract_warehouse_name,
+    generate_unique_slug,
+)
 
 setup_logging(include_file_log=True)
 logger = logging.getLogger(__name__)
@@ -191,6 +195,25 @@ async def run(
                         logger.error(f"Error inesperado en {url}: {e}")
                         csv_log.log(listing_id, url, "", "", "", "", "error")
                         continue
+
+                    # Iteración 2026-05 (Tarea 2): swap the raw Milanuncios
+                    # title for the canonical "Nave industrial en {tipo} en
+                    # {Name}" form when both ad_type and a usable name are
+                    # available. The original title is preserved in
+                    # `original_title` for traceability.
+                    data["original_title"] = data.get("title")
+                    canonical_name = extract_warehouse_name(data)
+                    canonical_title = build_canonical_title(
+                        data.get("ad_type"), canonical_name
+                    )
+                    if canonical_title:
+                        data["title"] = canonical_title
+                    else:
+                        logger.warning(
+                            "[engine] Canonical title not built for %s (ad_type=%s, "
+                            "name=%s) — keeping original.",
+                            listing_id, data.get("ad_type"), canonical_name,
+                        )
 
                     # Compute the final unique slug BEFORE insert so the row
                     # is stored with its slug in a single transaction and so
