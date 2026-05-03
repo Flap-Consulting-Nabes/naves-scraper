@@ -1,0 +1,249 @@
+{
+  "id": "673373bb232280f5720b72ca",
+  "displayName": "Spain Warehouses",
+  "singularName": "Spain Warehouse",
+  "slug": "es",
+  "createdOn": "2024-07-17T19:57:46.256Z",
+  "lastUpdated": "2025-11-24T08:22:58.744Z",
+  "fields": [
+    {
+      "id": "ba51e08d0cc9111be92059474e466a2b",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "Number",
+      "slug": "squared-meters",
+      "displayName": "Squared Meters",
+      "helpText": null,
+      "validations": {
+        "precision": 2,
+        "allowNegative": false
+      }
+    },
+    {
+      "id": "544ebe9c4cc68fc5b25baaa583c32983",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "Number",
+      "slug": "total-reviews",
+      "displayName": "Total Reviews",
+      "helpText": null,
+      "validations": {
+        "precision": 1,
+        "allowNegative": false
+      }
+    },
+    {
+      "id": "753de7563b077896ba25c996837e9a38",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "new-price-sm2-month",
+      "displayName": "New Price / Sm2 / Month",
+      "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "5a3fc0ee4c712a19a2be0964eb1b0dc5",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "new-sale-price",
+      "displayName": "New Sale Price",
+      "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "dd7b9b22abc61f94439c55c112a80b17",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "location",
+      "displayName": "Location",
+      "helpText": "City, Province",
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "0d6714e8d584b799a3e991bca9491cb4",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "full-address",
+      "displayName": "Full Address",
+      "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "5c5f5aebf046825b61ba6ef06b5122fa",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "latitude",
+      "displayName": "Latitude",
+      "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "1cb75524c37ec21e00ed602466e54c5d",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "longitude",
+      "displayName": "Longitude",
+      "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "2db379501d8ceba0adb8f90cadea1a3e",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "google-place-id",
+      "displayName": "Google Place ID",
+      "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "bfe21a801be2c3eb2037bf8edbc08089",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "Image",
+      "slug": "main-image",
+      "displayName": "Main Image",
+      "helpText": null,
+      "validations": null
+    },
+    {
+      "id": "f0a6b5d1a2ddc569e168095fcd70eb41",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "MultiImage",
+      "slug": "listing-images",
+      "displayName": "Top 4 Best Images",
+      "helpText": "MAX 4",
+      "validations": null
+    },
+    {
+      "id": "c4c0748cf34df2e2b79bf6bbfb19f538",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "MultiImage",
+      "slug": "additional-images",
+      "displayName": "Additional Images",
+      "helpText": "All Additional Images that are good",
+      "validations": null
+    },
+    {
+      "id": "5400682f7743b2622866e4eb12aef414",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "MultiImage",
+      "slug": "all-images",
+      "displayName": "Airbnb Top 5 Images",
+      "helpText": "Main Image + Top 4 ",
+      "validations": null
+    },
+    {
+      "id": "86ca5586c83ca5b8190f7ad98ba76c08",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "languages",
+      "displayName": "Languages",
+      "helpText": "Ex: English, French, Spanish",
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "7320306e94f0a53eccb0cdfbd83f4f40",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "RichText",
+      "slug": "funeral-home-biography",
+      "displayName": "Description",
+      "helpText": null,
+      "validations": null
+    },
+    {
+      "id": "5471a658644aad9d3f888b384574dc09",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "Number",
+      "slug": "number-memberstack",
+      "displayName": "Number Memberstack",
+      "helpText": "Do not enter a number",
+      "validations": {
+        "format": "integer",
+        "precision": 1,
+        "allowNegative": false
+      }
+    },
+    {
+      "id": "0dc79dd49fb15f2156c7a11392bfea87",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "Reference",
+      "slug": "base-location-ref",
+      "displayName": "Base Location Ref",
+      "helpText": null,
+      "validations": {
+        "collectionId": "690463c862c30e92ab66eb7e"
+      }
+    },
+    {
+      "id": "5a8d806b1b1b66d950ebdc984483dd2b",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "MultiReference",
+      "slug": "base-location-multi-ref",
+      "displayName": "Base Location Multi Ref",
+      "helpText": null,
+      "validations": {
+        "collectionId": "690463c862c30e92ab66eb7e"
+      }
+    },
+    {
+      "id": "1958f98f5711f635cf8ff00ea584332b",
+      "isEditable": true,
+      "isRequired": true,
+      "type": "PlainText",
+      "slug": "name",
+      "displayName": "Warehouse Name",
+      "helpText": null,
+      "validations": {
+        "maxLength": 256
+      }
+    },
+    {
+      "id": "74e0c48d608e9e58d41f07b9cceb7044",
+      "isEditable": true,
+      "isRequired": true,
+      "type": "PlainText",
+      "slug": "slug",
+      "displayName": "Slug",
+      "helpText": null,
+      "validations": {
+        "maxLength": 256,
+        "pattern": {},
+        "messages": {
+          "pattern": "Must be alphanumerical and not contain any spaces or special characters",
+          "maxLength": "Must be less than 256 characters"
+        }
+      }
+    }
+  ]
+}
