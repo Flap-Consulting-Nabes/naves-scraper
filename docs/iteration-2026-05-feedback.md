@@ -4,6 +4,11 @@ Tracking de las 9 tareas que Iñigo recopiló del feedback de Benedict tras el p
 
 Plan completo (no commiteado): `~/.claude/plans/hi-i-igo-that-s-fine-witty-abelson.md`.
 
+**Documentos hermanos:**
+- `docs/verification-report-2026-05.md` — evidencia de pruebas + run en tiempo real.
+- `docs/post-benedict-checklist.md` — pasos exactos para activar Tareas 6, 7, 8 cuando Benedict cree los campos en Webflow.
+- `docs/webflow-schema.json` — snapshot actual del schema CMS.
+
 ---
 
 ## Estado por tarea
