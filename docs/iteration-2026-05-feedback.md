@@ -15,7 +15,7 @@ Plan completo (no commiteado): `~/.claude/plans/hi-i-igo-that-s-fine-witty-abels
 
 | # | Tarea | Estado | Bloque |
 |---|---|---|---|
-| 1 | Detección venta/alquiler | ✅ verificado + warning logging | B2 |
+| 1 | Detección venta/alquiler | ✅ 4 capas (categories → sellType → URL → keyword scan) + audit script | B2 + B2-bis |
 | 2 | Título/slug canónico `Nave industrial en {tipo} en {Name}` | ✅ implementado + script de back-fill | D1 |
 | 3 | Dedup imágenes + split (main/top4/additional) | ✅ implementado | C2 |
 | 4 | Formato descripción (RichText) | ✅ implementado | C1 |
@@ -286,6 +286,51 @@ El campo `source-url` no existe aún en la colección Webflow. Hasta que Benedic
 ```
 python3 -m pytest tests/ -v
 # 188 passed (anteriormente 182). +6 tests nuevos en B1+E1.
+```
+
+---
+
+## Bloque B2-bis — Detección reforzada por keywords (capa 4)
+
+**Fecha:** 2026-05-04
+**Cobertura:** Tarea 1 (refuerzo).
+
+### Motivación
+
+La detección anterior (categories → sellType → URL) era robusta pero ciega a casos en los que la fuente categoriza mal. El cliente pidió una capa adicional de seguridad que escanee título + descripción con regex en español.
+
+### Cambios
+
+| Archivo | Cambio |
+|---|---|
+| `integrations/parser.py` | `parse_ad_type` ahora acepta `title=` y `description=`. Nueva capa 4: `_scan_text_for_ad_type` cuenta hits de regex. Si URL y body discrepan con `≥ 2` hits a favor del body, se loguea WARN y el body gana. Nuevos signals para alquiler: `alquiler`, `alquila`, `arriendo`, `renta`, `1.19€/m²`, `€/mes`, `mensual`. Nuevos signals para venta: `venta`, `vendo`, `se vende`, `compraventa`, `traspaso`. También se acepta `sellType="demand"` → alquiler. |
+| `integrations/parser.py` | `parse_listing_page` pasa título y descripción al `parse_ad_type` para activar la capa 4 desde la primera scrapada. |
+| `scripts/migrate_existing_listings.py` | `recompute_row` re-evalúa el `ad_type` para **todas** las filas (no solo NULL) para que la migración pueda corregir listings mal categorizados. |
+| `scripts/audit_ad_types.py` | **Nuevo**. Recorre todas las filas, re-aplica `parse_ad_type` con title+description+raw_html, compara contra `ad_type` actual y clasifica como `noop`/`fill_null`/`flip`/`review_keep`. Modo `--dry-run` por defecto + `--apply` para escribir correcciones. CSV en `reports/audit_ad_types_{ts}.csv`. |
+| `tests/test_parser.py` | 8 tests nuevos: body alquiler con URL neutra, body venta con URL neutra, patrón `€/m²` activa alquiler, body fuerte sobreescribe URL (con WARN), body débil deja URL ganar, `sellType=demand`, `traspaso → venta`, body empatado → None. |
+
+### Resultado de la prueba en tiempo real (2026-05-04)
+
+Scraping de 2 listings reales de Milanuncios en BD aislada:
+
+| listing_id | URL | ad_type detectado | hits venta | hits alquiler |
+|---|---|---|---|---|
+| 536607171 | `…/alquiler-de-naves…/almassera…` | alquiler ✅ | 0 | 2 |
+| 591003228 | `…/alquiler-de-naves…/beniparrell…` | alquiler ✅ | 0 | 1 |
+
+Audit posterior: `noop=2 fill_null=0 flip=0 review=0` — todo concuerda.
+
+### Verificación
+
+```bash
+python3 -m pytest tests/ -v
+# 201 passed (anteriormente 193). +8 tests nuevos en B2-bis.
+
+python3 scripts/audit_ad_types.py
+# Dry-run: lee BD, no escribe nada. CSV en reports/audit_ad_types_*.csv
+
+python3 scripts/audit_ad_types.py --apply
+# Reescribe ad_type en filas con `flip` o `fill_null`
 ```
 
 ---

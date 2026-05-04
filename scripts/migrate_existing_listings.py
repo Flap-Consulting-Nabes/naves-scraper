@@ -113,11 +113,18 @@ def recompute_row(row: dict) -> dict:
     proposed: dict = {}
 
     # ── ad_type ──
-    if not row.get("ad_type"):
-        ad_json = _ad_json_from_raw_html(row.get("raw_html"))
-        new_ad = parse_ad_type(row.get("url") or "", ad_json=ad_json)
-        if new_ad and new_ad != row.get("ad_type"):
-            proposed["ad_type"] = new_ad
+    # Iteración 2026-05-04: re-evaluar SIEMPRE el tipo, no solo cuando es
+    # NULL. El body-scan reforzado (parse_ad_type capa 4) puede corregir
+    # listings categorizados erróneamente por la fuente.
+    ad_json = _ad_json_from_raw_html(row.get("raw_html"))
+    new_ad = parse_ad_type(
+        row.get("url") or "",
+        ad_json=ad_json,
+        title=row.get("title") or row.get("original_title"),
+        description=row.get("description"),
+    )
+    if new_ad and new_ad != row.get("ad_type"):
+        proposed["ad_type"] = new_ad
 
     ad_type = proposed.get("ad_type") or row.get("ad_type")
 

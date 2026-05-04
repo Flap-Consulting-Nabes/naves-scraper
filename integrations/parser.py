@@ -557,12 +557,57 @@ def parse_dates(soup: BeautifulSoup, ad_json: dict | None = None) -> tuple[str |
 # Tipo de operación (venta/alquiler)
 # ---------------------------------------------------------------------------
 
-def parse_ad_type(url: str, ad_json: dict | None = None) -> str | None:
+_VENTA_KEYWORDS = (
+    r"\bventa\b", r"\bvende(?:n|se)?\b", r"\bvendo\b", r"\ben\s+venta\b",
+    r"\bse\s+vende\b", r"\bventas?\b", r"\bcompra(?:venta)?\b",
+    r"\bse\s+traspasa\b", r"\btraspaso\b",
+)
+_ALQUILER_KEYWORDS = (
+    r"\balquiler\b", r"\balquila(?:n|se)?\b", r"\balquilo\b",
+    r"\ben\s+alquiler\b", r"\bse\s+alquila\b", r"\barriendo?\b",
+    r"\barriend[oa]\b", r"\brenta\b", r"\bse\s+renta\b", r"\brentar\b",
+    r"\b\d+(?:[.,]\d+)?\s*€?\s*/\s*m[²2]\b", r"\b€\s*/\s*mes\b",
+    r"\bmensuale?s?\b",
+)
+_VENTA_RE = re.compile("|".join(_VENTA_KEYWORDS), re.IGNORECASE)
+_ALQUILER_RE = re.compile("|".join(_ALQUILER_KEYWORDS), re.IGNORECASE)
+
+
+def _scan_text_for_ad_type(text: str) -> tuple[int, int]:
+    """Return (venta_hits, alquiler_hits) keyword counts for `text`."""
+    if not text:
+        return 0, 0
+    return (
+        len(_VENTA_RE.findall(text)),
+        len(_ALQUILER_RE.findall(text)),
+    )
+
+
+def parse_ad_type(
+    url: str,
+    ad_json: dict | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> str | None:
     """Detecta si el anuncio es de venta o alquiler.
 
-    Source-of-truth precedence: JSON categories > JSON sellType > URL keyword.
-    Emits a WARNING when none of the signals are present so unmapped listings
-    are visible in the logs (Iteración 2026-05, Tarea 1).
+    Resolución por capas (la primera que decide gana):
+
+    1. **JSON categories** — `ad_json.categories[].slug/name` con palabra
+       `venta` o `alquiler`.
+    2. **JSON sellType** — `supply` → venta, `demand` → alquiler.
+    3. **URL keyword** — `/venta/` o `/alquiler/` en la URL.
+    4. **Keyword scan en título + descripción** (NUEVO 2026-05-04). Cuenta
+       hits regex de keywords ES (`venta`, `vendo`, `se vende`, `traspaso`
+       vs `alquiler`, `alquila`, `arriendo`, `renta`, `€/m²`, `€/mes`,
+       `mensual`). Decide por mayoría; empate → None con WARN.
+
+    Esta capa cubre anuncios mal categorizados en la fuente — p.ej. un
+    listing publicado bajo `/venta-de-naves/...` pero cuyo cuerpo dice
+    "se alquila por 1500 €/mes". Los reportes de bloque se llaman desde
+    `audit_ad_types.py` para revisar listings ya scrapeados.
+
+    Emits a WARNING when none of the signals are present.
     """
     if ad_json:
         for cat in ad_json.get("categories", []):
@@ -575,11 +620,48 @@ def parse_ad_type(url: str, ad_json: dict | None = None) -> str | None:
         sell_type = ad_json.get("sellType", "")
         if sell_type == "supply":
             return "venta"
+        if sell_type == "demand":
+            return "alquiler"
 
-    if "alquiler" in url.lower():
+    url_lower = url.lower()
+    url_says_alquiler = "alquiler" in url_lower
+    url_says_venta = "venta" in url_lower
+
+    body = " ".join(filter(None, [title or "", description or ""]))
+    venta_hits, alquiler_hits = _scan_text_for_ad_type(body)
+
+    # Cross-check URL hint with the body. If they agree, decide quickly.
+    if url_says_alquiler and not url_says_venta:
+        if venta_hits > alquiler_hits and venta_hits >= 2:
+            logger.warning(
+                "[parser] URL says alquiler but body votes venta "
+                "(%d venta vs %d alquiler hits) — using body. url=%s",
+                venta_hits, alquiler_hits, url,
+            )
+            return "venta"
         return "alquiler"
-    if "venta" in url.lower():
+
+    if url_says_venta and not url_says_alquiler:
+        if alquiler_hits > venta_hits and alquiler_hits >= 2:
+            logger.warning(
+                "[parser] URL says venta but body votes alquiler "
+                "(%d alquiler vs %d venta hits) — using body. url=%s",
+                alquiler_hits, venta_hits, url,
+            )
+            return "alquiler"
         return "venta"
+
+    # No URL hint — rely solely on the body.
+    if venta_hits or alquiler_hits:
+        if venta_hits > alquiler_hits:
+            return "venta"
+        if alquiler_hits > venta_hits:
+            return "alquiler"
+        logger.warning(
+            "[parser] ad_type tied in body (%d/%d) — leaving None. url=%s",
+            venta_hits, alquiler_hits, url,
+        )
+        return None
 
     logger.warning("[parser] ad_type undetectable for url=%s", url)
     return None
@@ -834,8 +916,15 @@ def parse_listing_page(url: str, html: str) -> dict:
         "energy_certificate": parse_energy_certificate(soup, ad_json=ad),
         "features": parse_features(soup, ad_json=ad),
 
-        # Tipo de operación e inmueble
-        "ad_type": parse_ad_type(url, ad_json=ad),
+        # Tipo de operación e inmueble. parse_ad_type recibe title +
+        # description para que el body-scan (capa 4) pueda corregir
+        # categorizaciones erróneas de la fuente.
+        "ad_type": parse_ad_type(
+            url,
+            ad_json=ad,
+            title=parse_title(soup),
+            description=parse_description(soup, ad_json=ad),
+        ),
         "property_type": parse_property_type(url, ad_json=ad),
 
         # Ubicación

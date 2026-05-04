@@ -227,6 +227,10 @@ python3 scripts/migrate_existing_listings.py
 
 # Migración back-fill de slugs canónicos (dry-run, genera redirects CSV)
 python3 scripts/migrate_canonical_titles.py
+
+# Auditoría de ad_type en filas existentes (re-evalúa con keyword scan)
+python3 scripts/audit_ad_types.py             # dry-run, genera CSV
+python3 scripts/audit_ad_types.py --apply     # escribe correcciones a la DB
 ```
 
 ---

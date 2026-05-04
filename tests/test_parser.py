@@ -58,6 +58,72 @@ class TestParseAdType:
         assert result is None
         assert any("ad_type undetectable" in rec.message for rec in caplog.records)
 
+    # ── Iteración 2026-05-04: capa 4 keyword scan ─────────────────────
+    def test_body_keyword_alquiler_when_url_neutral(self):
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            description="Se alquila nave industrial. Renta de 1500 euros mensuales.",
+        )
+        assert result == "alquiler"
+
+    def test_body_keyword_venta_when_url_neutral(self):
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            description="Se vende nave de 1.200 m². Compraventa rápida.",
+        )
+        assert result == "venta"
+
+    def test_per_m2_pattern_signals_alquiler(self):
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            description="Excelente nave a 1.19€/m².",
+        )
+        assert result == "alquiler"
+
+    def test_url_overridden_by_strong_body_signal(self, caplog):
+        # URL says venta, body strongly says alquiler — body wins.
+        import logging
+        with caplog.at_level(logging.WARNING, logger="integrations.parser"):
+            result = parse_ad_type(
+                "https://milanuncios.com/venta-de-naves/x.htm",
+                title="Se alquila nave",
+                description="Se alquila por 2.500 €/mes. Renta mensual.",
+            )
+        assert result == "alquiler"
+        assert any("URL says venta but body votes alquiler" in r.message for r in caplog.records)
+
+    def test_url_kept_when_body_weak(self):
+        # URL says venta, body has only one alquiler hit — keep URL.
+        result = parse_ad_type(
+            "https://milanuncios.com/venta-de-naves/x.htm",
+            description="Posibilidad de alquiler también.",
+        )
+        assert result == "venta"
+
+    def test_demand_in_json_means_alquiler(self):
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            ad_json={"sellType": "demand"},
+        )
+        assert result == "alquiler"
+
+    def test_traspaso_keyword_counts_as_venta(self):
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            description="Se traspasa local industrial bien situado.",
+        )
+        assert result == "venta"
+
+    def test_tied_body_returns_none(self, caplog):
+        import logging
+        with caplog.at_level(logging.WARNING, logger="integrations.parser"):
+            result = parse_ad_type(
+                "https://example.com/x.htm",
+                description="Venta o alquiler, ambas opciones.",
+            )
+        assert result is None
+        assert any("ad_type tied in body" in r.message for r in caplog.records)
+
 
 class TestParsePropertyType:
     def test_from_url_naves(self):
