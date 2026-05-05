@@ -276,27 +276,38 @@ def parse_zipcode(shop_json: dict | None) -> str | None:
 # ── Phone(s) ────────────────────────────────────────────────────────────────
 
 def parse_phone(soup: BeautifulSoup, shop_json: dict | None = None) -> str | None:
-    """Extrae el teléfono si está visible (puede estar oculto tras JS)."""
-    if shop_json:
-        phone = shop_json.get("phone1") or shop_json.get("phone2")
-        if phone:
-            return str(phone)
+    """Extract the listing-specific phone.
+
+    Priority: DOM `tel:` link (the number revealed for this ad) >
+    DOM phone-class text > shop_json.phone1/phone2 (agency-wide default).
+    The agency's main number is not the contact for the individual listing,
+    so the DOM-revealed value wins when present.
+    """
+    tel_anchor = soup.select_one("a[href^='tel:']")
+    if tel_anchor:
+        href = tel_anchor.get("href", "")
+        number = href.replace("tel:", "").strip()
+        if number:
+            return number
 
     for selector in [
         "[class*='phone']",
         "[class*='Phone']",
         "[class*='telefono']",
         "[data-testid*='phone']",
-        "a[href^='tel:']",
     ]:
         tag = soup.select_one(selector)
-        if tag:
-            href = tag.get("href", "")
-            if href.startswith("tel:"):
-                return href.replace("tel:", "").strip()
-            text = tag.get_text(strip=True)
-            if re.match(r"[+\d\s\-\(\)]{7,}", text):
-                return text
+        if not tag:
+            continue
+        text = tag.get_text(strip=True)
+        match = re.search(r"(?<!\d)([6-9]\d{8})(?!\d)", text)
+        if match:
+            return match.group(1)
+
+    if shop_json:
+        phone = shop_json.get("phone1") or shop_json.get("phone2")
+        if phone:
+            return str(phone)
 
     text = soup.get_text()
     match = re.search(r"(?<!\d)([6-9]\d{8}|\+34\s?[6-9]\d{8}|0034\s?[6-9]\d{8})(?!\d)", text)

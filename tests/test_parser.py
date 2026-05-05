@@ -1,4 +1,6 @@
 """Tests for parser.py — field extraction from URLs and HTML."""
+from bs4 import BeautifulSoup
+
 from integrations.parser import (
     parse_ad_type,
     parse_coordinates,
@@ -6,6 +8,7 @@ from integrations.parser import (
     parse_price_numeric,
     parse_property_type,
 )
+from integrations.parser_fields import parse_phone
 
 
 class TestParseListingId:
@@ -200,3 +203,27 @@ class TestParseCoordinates:
         lat, lng = parse_coordinates(ad)
         assert lat == 40.4168
         assert lng is None
+
+
+class TestParsePhone:
+    """The DOM-revealed `tel:` link is the listing-specific contact and must
+    win over `shop.phone1`, which is the agency-wide default number."""
+
+    def test_dom_tel_link_overrides_shop_phone1(self):
+        soup = BeautifulSoup('<a href="tel:930419179">930419179</a>', "html.parser")
+        shop = {"phone1": "935793333"}
+        assert parse_phone(soup, shop) == "930419179"
+
+    def test_falls_back_to_shop_phone1_when_no_tel_link(self):
+        soup = BeautifulSoup("<div>no phone here</div>", "html.parser")
+        shop = {"phone1": "935793333"}
+        assert parse_phone(soup, shop) == "935793333"
+
+    def test_returns_none_when_nothing_found(self):
+        soup = BeautifulSoup("<div>nada</div>", "html.parser")
+        assert parse_phone(soup, None) is None
+
+    def test_phone_class_text_used_when_no_tel_link(self):
+        html = '<span class="phone-number">912345678</span>'
+        soup = BeautifulSoup(html, "html.parser")
+        assert parse_phone(soup, None) == "912345678"

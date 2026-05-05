@@ -328,19 +328,80 @@ async def scrape_listing(url: str) -> dict:
 
 
 async def _try_reveal_phone(page) -> None:
-    phone_selectors = [
-        "button[class*='phone']",
-        "button[class*='Phone']",
-        "[data-testid*='phone']",
-        "button:has-text('Ver teléfono')",
-    ]
-    for selector in phone_selectors:
+    """Click the 'Llamar' button and wait for the listing-specific phone
+    to render. The contact number is fetched lazily on click — the
+    initial HTML only contains the agency's shop-level number — so we
+    must trigger the reveal and then poll the DOM until the popup
+    surfaces a 9-digit number. The number is exposed as an `tel:` href
+    inside the popup.
+
+    Click is dispatched via JS text matching because zendriver's CSS
+    engine does not implement `:has-text()`.
+    """
+    click_js = (
+        "(() => {"
+        " const re = /^\\s*(llamar|ver tel[eé]fono|tel[eé]fono)\\s*$/i;"
+        " const candidates = ["
+        "   ...document.querySelectorAll('button, a[role=button], [role=button]')"
+        " ];"
+        " const target = candidates.find(el => re.test((el.innerText||'').trim()));"
+        " if (target) { target.click(); return true; } return false;"
+        "})()"
+    )
+
+    try:
+        clicked = await page.evaluate(click_js)
+    except Exception as e:
+        logger.debug("reveal-phone click failed: %s", e)
+        clicked = False
+
+    if not clicked:
+        # Fallback to the legacy class-based selectors (some skins use
+        # `phone`/`Phone`/`telefono` class names instead of plain text).
+        for selector in (
+            "button[class*='phone']",
+            "button[class*='Phone']",
+            "[data-testid*='phone']",
+        ):
+            try:
+                btn = await page.find(selector, timeout=2)
+                if btn:
+                    await btn.click()
+                    clicked = True
+                    break
+            except Exception:
+                continue
+
+    if not clicked:
+        return
+
+    poll_js = (
+        "(() => {"
+        " const a = document.querySelector(\"a[href^='tel:']\");"
+        " if (a) return a.getAttribute('href').replace('tel:','').trim();"
+        " const txt = document.body ? document.body.innerText : '';"
+        " const m = txt.match(/(?<!\\d)([6-9]\\d{8})(?!\\d)/);"
+        " return m ? m[1] : null;"
+        "})()"
+    )
+
+    last_number: str | None = None
+    stable_hits = 0
+    for _ in range(20):
+        await asyncio.sleep(0.5)
         try:
-            btn = await page.find(selector, timeout=2)
-            if btn:
-                await btn.click()
-                await asyncio.sleep(1.5)
-                logger.debug("Teléfono revelado.")
-                break
+            current = await page.evaluate(poll_js)
         except Exception:
-            continue
+            current = None
+        if current:
+            if current == last_number:
+                stable_hits += 1
+                if stable_hits >= 2:
+                    logger.debug("Telefono revelado y estable: %s", current)
+                    return
+            else:
+                stable_hits = 0
+                last_number = current
+    logger.debug(
+        "Telefono revelado pero no estabilizo en 10s (last=%s)", last_number
+    )
