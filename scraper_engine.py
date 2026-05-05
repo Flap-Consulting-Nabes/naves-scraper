@@ -34,8 +34,7 @@ from utils.image_downloader import download_images
 from utils.jitter import random_delay
 from utils.logging_config import setup_logging
 from utils.slugify import (
-    build_canonical_title,
-    extract_warehouse_name,
+    compute_canonical_title,
     generate_unique_slug,
 )
 
@@ -202,17 +201,14 @@ async def run(
                     # available. The original title is preserved in
                     # `original_title` for traceability.
                     data["original_title"] = data.get("title")
-                    canonical_name = extract_warehouse_name(data)
-                    canonical_title = build_canonical_title(
-                        data.get("ad_type"), canonical_name
-                    )
+                    canonical_title = compute_canonical_title(data)
                     if canonical_title:
                         data["title"] = canonical_title
                     else:
                         logger.warning(
-                            "[engine] Canonical title not built for %s (ad_type=%s, "
-                            "name=%s) — keeping original.",
-                            listing_id, data.get("ad_type"), canonical_name,
+                            "[engine] Canonical title not built for %s "
+                            "(ad_type=%s, location=%s) — keeping original.",
+                            listing_id, data.get("ad_type"), data.get("location"),
                         )
 
                     # Compute the final unique slug BEFORE insert so the row

@@ -1,134 +1,39 @@
 """
-Capa de base de datos SQLite.
-Gestiona el schema, la deduplicación y las operaciones CRUD.
+Capa de base de datos SQLite — operaciones CRUD.
+
+El schema y las helpers de migración viven en `db_schema.py` para
+mantener este módulo bajo el cap de 300 líneas (Codex review R3).
+La función pública `init_db` se queda aquí porque es el entry point
+que importa todo el resto del proyecto.
 """
 import json
 import logging
-import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from db_schema import (
+    SCHEMA,
+    _ALLOWED_TYPES,
+    _NEW_COLUMNS,
+    _VALID_COL_RE,
+    _safe_add_column,
+    migrate_db,
+)
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS listings (
-    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    listing_id         TEXT UNIQUE NOT NULL,
-    url                TEXT NOT NULL,
-    reference          TEXT,
-
-    title              TEXT,
-    description        TEXT,
-
-    price              TEXT,
-    price_numeric      REAL,
-    price_per_m2       REAL,
-
-    surface_m2         REAL,
-    rooms              INTEGER,
-    bathrooms          INTEGER,
-    floor              TEXT,
-    condition          TEXT,
-    energy_certificate TEXT,
-    features           TEXT,
-
-    ad_type            TEXT,
-    property_type      TEXT,
-
-    location           TEXT,
-    province           TEXT,
-    address            TEXT,
-    zipcode            TEXT,
-    latitude           REAL,
-    longitude          REAL,
-    original_title     TEXT,
-
-    seller_type        TEXT,
-    seller_name        TEXT,
-    seller_id          TEXT,
-    seller_url         TEXT,
-    phone              TEXT,
-    phone2             TEXT,
-
-    photos             TEXT,
-    images_local       TEXT,
-
-    published_at       TEXT,
-    updated_at         TEXT,
-    scraped_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    raw_html           TEXT,
-
-    webflow_item_id    TEXT,
-    webflow_synced_at  TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_listing_id  ON listings(listing_id);
-CREATE INDEX IF NOT EXISTS idx_scraped_at  ON listings(scraped_at);
-CREATE INDEX IF NOT EXISTS idx_surface     ON listings(surface_m2);
-CREATE INDEX IF NOT EXISTS idx_province    ON listings(province);
-"""
-
-# Columnas nuevas respecto al schema inicial (para migración de BD existente)
-_NEW_COLUMNS = [
-    ("reference",          "TEXT"),
-    ("price_numeric",      "REAL"),
-    ("price_per_m2",       "REAL"),
-    ("ad_type",            "TEXT"),
-    ("property_type",      "TEXT"),
-    ("condition",          "TEXT"),
-    ("energy_certificate", "TEXT"),
-    ("features",           "TEXT"),
-    ("bathrooms",          "INTEGER"),
-    ("address",            "TEXT"),
-    ("zipcode",            "TEXT"),
-    ("phone2",             "TEXT"),
-    ("seller_id",          "TEXT"),
-    ("seller_url",         "TEXT"),
-    ("images_local",            "TEXT"),
-    ("webflow_item_id",         "TEXT"),
-    ("webflow_synced_at",       "TIMESTAMP"),
-    ("webflow_slug",            "TEXT"),
-    ("webflow_assets_synced_at", "TIMESTAMP"),
-    ("latitude",                 "REAL"),
-    ("longitude",                "REAL"),
-    ("original_title",           "TEXT"),
+# Backward-compat re-exports for callers that import private helpers
+# (the test suite touches `_safe_add_column`, `_NEW_COLUMNS`, etc.).
+__all__ = [
+    "SCHEMA", "_ALLOWED_TYPES", "_NEW_COLUMNS", "_VALID_COL_RE",
+    "_safe_add_column", "migrate_db", "init_db",
+    "listing_exists", "insert_listing", "update_images_local",
+    "update_listing_price", "count_listings", "get_listings_paginated",
+    "get_unsynced_listings", "update_webflow_id", "update_webflow_slug",
+    "update_canonical_title", "mark_webflow_assets_synced",
+    "get_all_listings_for_migration",
 ]
 
-
-_VALID_COL_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
-_ALLOWED_TYPES = {"TEXT", "REAL", "INTEGER", "TIMESTAMP", "BLOB"}
-
-
-def _safe_add_column(conn: sqlite3.Connection, col: str, typ: str) -> None:
-    """Validates column name/type before issuing ALTER TABLE to prevent SQL injection."""
-    if not _VALID_COL_RE.match(col):
-        raise ValueError(f"Invalid column name: {col!r}")
-    if typ.upper() not in _ALLOWED_TYPES:
-        raise ValueError(f"Invalid column type: {typ!r}")
-    conn.execute(f"ALTER TABLE listings ADD COLUMN {col} {typ}")
-
-
-def _migrate_db(conn: sqlite3.Connection) -> None:
-    """Añade columnas nuevas a una BD existente sin perder datos."""
-    existing = {row[1] for row in conn.execute("PRAGMA table_info(listings)")}
-    added = []
-    for col, typ in _NEW_COLUMNS:
-        if col not in existing:
-            _safe_add_column(conn, col, typ)
-            added.append(col)
-    if added:
-        conn.commit()
-        logger.info(f"[DB] Migración: columnas añadidas → {added}")
-
-    # Índices para columnas nuevas (seguros de crear después de migración)
-    conn.executescript("""
-        CREATE INDEX IF NOT EXISTS idx_price           ON listings(price_numeric);
-        CREATE INDEX IF NOT EXISTS idx_ad_type         ON listings(ad_type);
-        CREATE INDEX IF NOT EXISTS idx_webflow_item_id ON listings(webflow_item_id);
-        CREATE INDEX IF NOT EXISTS idx_webflow_slug    ON listings(webflow_slug);
-    """)
-    conn.commit()
+logger = logging.getLogger(__name__)
 
 
 def init_db(path: str = "naves.db") -> sqlite3.Connection:
@@ -145,7 +50,7 @@ def init_db(path: str = "naves.db") -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
     conn.commit()
-    _migrate_db(conn)
+    migrate_db(conn)
     logger.info(f"Base de datos inicializada en {db_path.resolve()}")
     return conn
 

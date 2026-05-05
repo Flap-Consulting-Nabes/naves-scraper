@@ -102,127 +102,162 @@ def resolve_field_mapping(collection_schema: dict) -> dict[str, str]:
     return resolved
 
 
+def _coerce_field_value(
+    db_field: str,
+    wf_slug: str,
+    value,
+    field_types: dict[str, str],
+) -> object | None:
+    """Coerce a single DB value into the type Webflow expects for the
+    target slug. Returns None when the value should be skipped."""
+    if value is None:
+        return None
+    ftype = field_types.get(wf_slug, "PlainText")
+    if ftype == "Number":
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    if ftype in ("Date", "DateTime"):
+        if isinstance(value, str) and value:
+            return value if "T" in value else value + "T00:00:00.000Z"
+        return None
+    if ftype == "RichText" and db_field == "description":
+        # Iteración 2026-05, Tarea 4: convert raw text to HTML so the
+        # frontend renders paragraphs and bullet lists correctly.
+        return format_description_html(str(value)) or None
+    return str(value)
+
+
+def _route_price_to_field(
+    field_data: dict,
+    row: dict,
+    available_slugs: set[str],
+) -> None:
+    """Override the generic price serialisation with the locale-aware
+    display string and route it to the correct slot per ad_type:
+      venta            → new-sale-price ("199.000 €")
+      alquiler / dual  → new-price-sm2-month ("1.19€/m²" or "1.500 €/mes")
+
+    Codex review R2: extracted from build_field_data so price routing is
+    independently testable. Mutates `field_data` in place.
+    """
+    ad_type = row.get("ad_type")
+    formatted = format_price_display(
+        ad_type, row.get("price_numeric"), row.get("price_per_m2"),
+    )
+    if formatted is None:
+        return
+
+    if ad_type == "venta" and "new-sale-price" in available_slugs:
+        field_data["new-sale-price"] = formatted
+        field_data.pop("new-price-sm2-month", None)
+    elif ad_type in ("alquiler", "venta_alquiler"):
+        # Dual offerings reuse the alquiler routing: the price extracted
+        # from MilAnuncios is the rental rate, and the sale slot stays
+        # empty (the listing rarely quotes both prices). The title
+        # already advertises both modalities via build_canonical_title.
+        if "new-price-sm2-month" in available_slugs:
+            field_data["new-price-sm2-month"] = formatted
+        elif "new-sale-price" in available_slugs:
+            field_data["new-sale-price"] = formatted
+        if "new-price-sm2-month" in available_slugs:
+            field_data.pop("new-sale-price", None)
+
+
+def _assign_image_fields(
+    field_data: dict,
+    image_urls: list[str],
+    collection_fields: list[dict],
+    alt: str,
+) -> None:
+    """Dedup `image_urls` (preserving order) and split across the four
+    Webflow slots:
+      main-image         → image 1
+      listing-images     → images 2-5  ("Top 4 Best Images")
+      all-images         → images 1-5  ("Airbnb Top 5 Images")
+      additional-images  → images 6+
+
+    Codex review R2: extracted from build_field_data. Mutates
+    `field_data` in place.
+    """
+    if not image_urls:
+        return
+
+    seen: set[str] = set()
+    unique_urls: list[str] = []
+    for url in image_urls:
+        if url and url not in seen:
+            seen.add(url)
+            unique_urls.append(url)
+
+    slug_types = {f["slug"]: f.get("type") for f in collection_fields}
+    main = unique_urls[:1]
+    top_four_after_main = unique_urls[1:5]
+    airbnb_top_five = unique_urls[:5]
+    rest = unique_urls[5:]
+
+    if main and slug_types.get("main-image") == "Image":
+        field_data["main-image"] = {"url": main[0], "alt": alt}
+
+    if slug_types.get("listing-images") == "MultiImage":
+        field_data["listing-images"] = [
+            {"url": u, "alt": alt} for u in top_four_after_main
+        ]
+
+    if slug_types.get("all-images") == "MultiImage":
+        field_data["all-images"] = [
+            {"url": u, "alt": alt} for u in airbnb_top_five
+        ]
+
+    if slug_types.get("additional-images") == "MultiImage" and rest:
+        field_data["additional-images"] = [
+            {"url": u, "alt": alt} for u in rest
+        ]
+
+
 def build_field_data(
     row: dict,
     field_mapping: dict[str, str],
     image_urls: list[str],
     collection_fields: list[dict],
 ) -> dict:
+    """Build the Webflow `fieldData` payload for a DB row.
+
+    Composition:
+      1. generic per-field type coercion via `_coerce_field_value`
+      2. mandatory `name` + `slug` injection (Webflow requires both)
+      3. price routing via `_route_price_to_field` (overrides the
+         generic str() of price_numeric with the locale-aware display
+         string and lands it on the correct slug per ad_type)
+      4. image splitting via `_assign_image_fields`
     """
-    Construye el payload fieldData para Webflow a partir de una fila de la DB.
-    """
-    # Índice de tipo por slug para formatear valores correctamente
     field_types: dict[str, str] = {
         f.get("slug", ""): f.get("type", "PlainText")
         for f in collection_fields
     }
+    available_slugs = set(field_types.keys())
 
     field_data: dict = {}
-
     for db_field, wf_slug in field_mapping.items():
-        value = row.get(db_field)
-        if value is None:
-            continue
+        coerced = _coerce_field_value(
+            db_field, wf_slug, row.get(db_field), field_types,
+        )
+        if coerced is not None:
+            field_data[wf_slug] = coerced
 
-        ftype = field_types.get(wf_slug, "PlainText")
-
-        # Convertir según tipo de campo Webflow
-        if ftype in ("Number",):
-            try:
-                field_data[wf_slug] = float(value)
-            except (TypeError, ValueError):
-                pass
-        elif ftype in ("Date", "DateTime"):
-            # Webflow espera ISO 8601
-            if isinstance(value, str) and value:
-                if "T" not in value:
-                    value = value + "T00:00:00.000Z"
-                field_data[wf_slug] = value
-        elif ftype == "RichText" and db_field == "description":
-            # Iteración 2026-05, Tarea 4: convert raw text to HTML so the
-            # frontend renders paragraphs and bullet lists correctly.
-            html = format_description_html(str(value))
-            if html:
-                field_data[wf_slug] = html
-        else:
-            field_data[wf_slug] = str(value) if value is not None else None
-
-    # "name" es siempre requerido en Webflow
     if "name" not in field_data:
-        field_data["name"] = row.get("title") or f"Nave industrial {row.get('listing_id', '')}"
+        field_data["name"] = (
+            row.get("title") or f"Nave industrial {row.get('listing_id', '')}"
+        )
+    field_data["slug"] = (
+        row.get("webflow_slug") or f"nave-{row.get('listing_id', '')}"
+    )
 
-    # Slug: use the title-based slug computed at scrape time. Fallback to
-    # `nave-{listing_id}` for legacy rows that have not been back-filled yet.
-    field_data["slug"] = row.get("webflow_slug") or f"nave-{row.get('listing_id', '')}"
-
-    # Precio formateado según tipo (Iteración 2026-05, Tarea 5).
-    # Override the generic `str(price_numeric)` output with the locale-aware
-    # display string the client requested:
-    #   venta    → "199.000 €"  on `new-sale-price`
-    #   alquiler → "1.19€/m²"   on `new-price-sm2-month` (or `new-sale-price`
-    #              as a fallback if only the sale-price field exists).
-    ad_type = row.get("ad_type")
-    price_numeric = row.get("price_numeric")
-    price_per_m2 = row.get("price_per_m2")
-    formatted_price = format_price_display(ad_type, price_numeric, price_per_m2)
-    if formatted_price is not None:
-        available_slugs = {f.get("slug", "") for f in collection_fields}
-        if ad_type == "venta" and "new-sale-price" in available_slugs:
-            field_data["new-sale-price"] = formatted_price
-            # Sale price never goes in the per-m2/month field
-            field_data.pop("new-price-sm2-month", None)
-        elif ad_type in ("alquiler", "venta_alquiler"):
-            # Dual offerings reuse the alquiler routing: the price extracted
-            # from MilAnuncios is the rental rate, and the sale slot stays
-            # empty (the listing rarely quotes both prices). The title
-            # already advertises both modalities via build_canonical_title.
-            if "new-price-sm2-month" in available_slugs:
-                field_data["new-price-sm2-month"] = formatted_price
-            elif "new-sale-price" in available_slugs:
-                field_data["new-sale-price"] = formatted_price
-            # Rent never goes in the sale-price field if both exist
-            if "new-price-sm2-month" in available_slugs:
-                field_data.pop("new-sale-price", None)
-
-    # Imágenes: split en 3 grupos según convención del cliente (Tarea 3).
-    #   main-image        = primera imagen deduplicada (tipo Image)
-    #   listing-images    = "Top 4 Best Images"   = imágenes 2..5
-    #   all-images        = "Airbnb Top 5 Images" = imágenes 1..5 (main + top4)
-    #   additional-images = el resto              = imágenes 6..N
-    # Dedup explícita (preserva orden original) antes de cualquier asignación.
-    if image_urls:
-        seen: set[str] = set()
-        unique_urls: list[str] = []
-        for url in image_urls:
-            if url and url not in seen:
-                seen.add(url)
-                unique_urls.append(url)
-
-        available_slugs = {f["slug"]: f.get("type") for f in collection_fields}
-        alt = field_data.get("name", "")
-
-        main = unique_urls[:1]
-        top_four_after_main = unique_urls[1:5]
-        airbnb_top_five = unique_urls[:5]
-        rest = unique_urls[5:]
-
-        if main and available_slugs.get("main-image") == "Image":
-            field_data["main-image"] = {"url": main[0], "alt": alt}
-
-        if available_slugs.get("listing-images") == "MultiImage":
-            field_data["listing-images"] = [
-                {"url": u, "alt": alt} for u in top_four_after_main
-            ]
-
-        if available_slugs.get("all-images") == "MultiImage":
-            field_data["all-images"] = [
-                {"url": u, "alt": alt} for u in airbnb_top_five
-            ]
-
-        if available_slugs.get("additional-images") == "MultiImage" and rest:
-            field_data["additional-images"] = [
-                {"url": u, "alt": alt} for u in rest
-            ]
+    _route_price_to_field(field_data, row, available_slugs)
+    _assign_image_fields(
+        field_data, image_urls, collection_fields, alt=field_data.get("name", ""),
+    )
 
     return field_data
 

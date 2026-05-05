@@ -64,6 +64,21 @@ _AD_TYPE_TITLE_PHRASE = {
 }
 
 
+def compute_canonical_title(row: dict) -> str | None:
+    """Convenience wrapper: pull `ad_type` from the row, derive the
+    `{Name}` part via `extract_warehouse_name`, and produce the canonical
+    title in one call.
+
+    Codex review R4: shared between `scraper_engine` (live scrape) and
+    `scripts/migrate_existing_listings` (back-fill) so a future change
+    to the title format only needs to land in one place.
+
+    Returns None when either signal is missing — caller decides whether
+    to keep the original title or skip.
+    """
+    return build_canonical_title(row.get("ad_type"), extract_warehouse_name(row))
+
+
 def build_canonical_title(ad_type: str | None, name: str | None) -> str | None:
     """Return `Nave industrial en {phrase} en {Name}` or None.
 

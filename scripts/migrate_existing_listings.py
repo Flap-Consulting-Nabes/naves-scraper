@@ -57,8 +57,7 @@ from integrations.webflow_sync import (
 from utils.description_formatter import format_description_html
 from utils.price_formatter import format_price_display
 from utils.slugify import (
-    build_canonical_title,
-    extract_warehouse_name,
+    compute_canonical_title,
     generate_unique_slug,
 )
 
@@ -145,8 +144,10 @@ def recompute_row(row: dict) -> dict:
             proposed["description"] = html
 
     # ── canonical title + slug ──
-    name = extract_warehouse_name(row)
-    canonical_title = build_canonical_title(ad_type, name)
+    # Pass the (possibly flipped) ad_type into the helper by overlaying
+    # it on a copy of the row dict; `compute_canonical_title` reads it
+    # back out and forwards to extract_warehouse_name + build_canonical_title.
+    canonical_title = compute_canonical_title({**row, "ad_type": ad_type})
     if canonical_title and canonical_title != row.get("title"):
         proposed["title"] = canonical_title
         proposed["original_title"] = row.get("original_title") or row.get("title")
