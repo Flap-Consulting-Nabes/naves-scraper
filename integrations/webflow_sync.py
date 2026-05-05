@@ -291,6 +291,14 @@ async def sync_pending_listings() -> dict:
 
     try:
         async with WebflowClient() as client:
+            # Pre-flight: skip the rest of sync (and the expensive ~8 s
+            # CMS pagination of _build_source_url_index) when there is
+            # nothing to sync. Codex review Sprint 2 (P2).
+            rows = get_unsynced_listings(conn)
+            if not rows:
+                logger.info("[Webflow] Sync skipped — 0 pending rows")
+                return {"synced": 0, "failed": 0}
+
             # Descubrir schema de la colección
             schema = await client.get_collection_schema()
             field_mapping = resolve_field_mapping(schema)
@@ -309,7 +317,6 @@ async def sync_pending_listings() -> dict:
                 client, field_mapping, spanish_locale_id,
             )
 
-            rows = get_unsynced_listings(conn)
             logger.info("[Webflow] Iniciando sync: %d anuncios pendientes", len(rows))
 
             for row in rows:

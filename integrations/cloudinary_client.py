@@ -171,16 +171,27 @@ async def delete_image(public_id: str) -> bool:
 
 async def delete_images(public_ids: list[str]) -> int:
     """
-    Delete multiple Cloudinary assets in parallel. Returns the number of
-    successful deletions. Used to clean up staging uploads after Webflow
-    has re-hosted them on its own CDN, keeping the free-tier storage low.
+    Delete Cloudinary staging assets after Webflow has re-hosted them on
+    its own CDN, keeping the free-tier storage low. Runs after every
+    listing item is created — off the critical path, so latency does not
+    matter.
+
+    Codex Sprint 2 (P5): serialised. Parallel execution previously
+    produced "Connection pool is full, discarding connection" warnings
+    from urllib3 (default pool size 10, but typical batch is 10-20
+    images). Sequential keeps the same throughput on the free tier
+    (rate-limited at the API anyway) without the warning noise.
     """
     if not public_ids:
         return 0
     if not _ensure_configured():
         return 0
-    results = await asyncio.gather(
-        *(delete_image(pid) for pid in public_ids),
-        return_exceptions=True,
-    )
-    return sum(1 for r in results if r is True)
+    deleted = 0
+    for pid in public_ids:
+        try:
+            if await delete_image(pid):
+                deleted += 1
+        except Exception:
+            # delete_image already logs the cause; just skip and continue.
+            pass
+    return deleted
