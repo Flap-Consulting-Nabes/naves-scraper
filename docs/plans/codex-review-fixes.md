@@ -1,10 +1,23 @@
 # Plan — execute all 21 findings from Codex review (2026-05-04)
 
+**Status:** Sprints 1-3 complete. Sprint 4 partial (R1 split deferred).
+Sprint 5 deferred as planned. Test suite green throughout (225 passed).
+
 Source: `docs/codex-review-2026-05-04.md`. Each step lists the finding ID,
 files touched, and the test gate that must pass before the commit.
 
 The plan is grouped into 5 sprints by risk and dependency. Each sprint
 ends with a commit and a green test suite (currently 225 passing).
+
+## Completion log
+
+| Sprint | Commit | Status |
+|---|---|---|
+| Sprint 1 | `475363a` | ✅ All 5 items done (B1, B2, B8, R5, R6) |
+| Sprint 2 | `cd6cc45` | ✅ All 3 items done (P1, P2, P5) |
+| Sprint 3 | `ff79469` | ✅ All 6 items done (B3, B4, B5, B6, B7, B9 — B9 was already in Sprint 1) |
+| Sprint 4 | `d158e96` | ✅ R2, R3, R4 done. R1 partial (ad_type extracted, full split deferred) |
+| Sprint 5 | — | ⏸ Deferred as planned (P3, P6) |
 
 ---
 
