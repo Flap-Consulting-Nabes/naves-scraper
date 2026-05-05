@@ -583,13 +583,16 @@ def _scan_text_for_ad_type(text: str) -> tuple[int, int]:
     )
 
 
+_DUAL_MIN_HITS = 2  # both venta_hits >= 2 AND alquiler_hits >= 2 → dual offering
+
+
 def parse_ad_type(
     url: str,
     ad_json: dict | None = None,
     title: str | None = None,
     description: str | None = None,
 ) -> str | None:
-    """Detecta si el anuncio es de venta o alquiler.
+    """Detecta si el anuncio es de venta, alquiler o ambos.
 
     Resolución por capas (la primera que decide gana):
 
@@ -601,6 +604,14 @@ def parse_ad_type(
        hits regex de keywords ES (`venta`, `vendo`, `se vende`, `traspaso`
        vs `alquiler`, `alquila`, `arriendo`, `renta`, `€/m²`, `€/mes`,
        `mensual`). Decide por mayoría; empate → None con WARN.
+
+    Cuando el body tiene >= _DUAL_MIN_HITS hits de **ambas** familias
+    (`venta` Y `alquiler`), el anuncio se clasifica como
+    `"venta_alquiler"` — modalidad dual — y el caso "URL says X / body
+    says both" devuelve la modalidad dual en lugar del hint de URL. Esto
+    cubre anuncios donde el anunciante ofrece la misma propiedad bajo
+    ambas modalidades (p.ej. la frase "VENTA o ALQUILER" + alquiler
+    keywords + venta keywords).
 
     Esta capa cubre anuncios mal categorizados en la fuente — p.ej. un
     listing publicado bajo `/venta-de-naves/...` pero cuyo cuerpo dice
@@ -630,8 +641,19 @@ def parse_ad_type(
     body = " ".join(filter(None, [title or "", description or ""]))
     venta_hits, alquiler_hits = _scan_text_for_ad_type(body)
 
+    is_dual = (
+        venta_hits >= _DUAL_MIN_HITS and alquiler_hits >= _DUAL_MIN_HITS
+    )
+
     # Cross-check URL hint with the body. If they agree, decide quickly.
     if url_says_alquiler and not url_says_venta:
+        if is_dual:
+            logger.info(
+                "[parser] URL says alquiler but body offers both "
+                "(%d venta / %d alquiler hits) — using venta_alquiler. url=%s",
+                venta_hits, alquiler_hits, url,
+            )
+            return "venta_alquiler"
         if venta_hits > alquiler_hits and venta_hits >= 2:
             logger.warning(
                 "[parser] URL says alquiler but body votes venta "
@@ -642,6 +664,13 @@ def parse_ad_type(
         return "alquiler"
 
     if url_says_venta and not url_says_alquiler:
+        if is_dual:
+            logger.info(
+                "[parser] URL says venta but body offers both "
+                "(%d venta / %d alquiler hits) — using venta_alquiler. url=%s",
+                venta_hits, alquiler_hits, url,
+            )
+            return "venta_alquiler"
         if alquiler_hits > venta_hits and alquiler_hits >= 2:
             logger.warning(
                 "[parser] URL says venta but body votes alquiler "
@@ -652,6 +681,8 @@ def parse_ad_type(
         return "venta"
 
     # No URL hint — rely solely on the body.
+    if is_dual:
+        return "venta_alquiler"
     if venta_hits or alquiler_hits:
         if venta_hits > alquiler_hits:
             return "venta"

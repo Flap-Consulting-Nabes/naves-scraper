@@ -42,6 +42,23 @@ class TestAlquiler:
         assert format_price_display("alquiler", None, None) is None
 
 
+class TestVentaAlquilerDual:
+    """Listings that offer both modalities reuse the alquiler routing
+    because the price extracted from MilAnuncios is the rental rate."""
+
+    def test_per_m2_takes_rental_format(self):
+        assert format_price_display("venta_alquiler", None, 1.66) == "1.66€/m²"
+
+    def test_falls_back_to_monthly_total_when_no_per_m2(self):
+        assert format_price_display("venta_alquiler", 1500, None) == "1.500 €/mes"
+
+    def test_per_m2_takes_precedence_over_monthly(self):
+        assert format_price_display("venta_alquiler", 1500, 1.66) == "1.66€/m²"
+
+    def test_returns_none_when_both_missing(self):
+        assert format_price_display("venta_alquiler", None, None) is None
+
+
 class TestUnknownType:
     @pytest.mark.parametrize("ad_type", [None, "", "unknown", "transfer"])
     def test_unknown_type_returns_none(self, ad_type):

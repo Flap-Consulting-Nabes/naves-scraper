@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -186,12 +187,10 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
 
         # Parsear métricas del output del scraper
         if "PÁGINA" in line or "Página" in line:
-            import re
             m = re.search(r"[Pp]ágina[^\d]*(\d+)", line)
             if m:
                 status["current_page"] = int(m.group(1))
         elif "Nuevos insertados" in line:
-            import re
             m = re.search(r"(\d+)\s*$", line)  # último número (evita capturar timestamp)
             if m:
                 status["total_new"] = int(m.group(1))
@@ -201,10 +200,14 @@ async def _monitor_proc(proc: asyncio.subprocess.Process) -> None:
                     _last_sync_time = now
                     fire_and_track(_webflow_sync_bg(), name="webflow-auto-sync")
         elif "Duplicados" in line or "saltados" in line.lower():
-            import re
             m = re.search(r"(\d+)\s*$", line)  # último número (evita capturar timestamp)
             if m:
                 status["total_skipped"] = int(m.group(1))
+        elif "[SKIP] Ya existe:" in line:
+            # In-flight skip notification (one per duplicate listing).
+            # Increment so the dashboard updates in real time instead of
+            # waiting for the end-of-run summary line.
+            status["total_skipped"] = int(status.get("total_skipped") or 0) + 1
         elif "[CAPTCHA_REQUIRED]" in line or "[CAPTCHA_WAITING]" in line:
             status["challenge_waiting"] = True
         elif "[CAPTCHA_SOLVED]" in line:
@@ -269,7 +272,7 @@ async def launch_scraper(
             return False  # ya corriendo
 
         env = os.environ.copy()
-        env.setdefault("DISPLAY", ":1")  # Chrome headful necesita display
+        env.setdefault("DISPLAY", ":99")  # Xvfb runs on :99 in production
 
         cmd = [sys.executable, str(PROJECT_ROOT / "scraper_engine.py")]
         if max_pages:

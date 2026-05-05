@@ -57,17 +57,32 @@ def extract_warehouse_name(data: dict) -> str | None:
     return None
 
 
+_AD_TYPE_TITLE_PHRASE = {
+    "venta":          "venta",
+    "alquiler":       "alquiler",
+    "venta_alquiler": "venta o alquiler",
+}
+
+
 def build_canonical_title(ad_type: str | None, name: str | None) -> str | None:
-    """Return `Nave industrial en {venta|alquiler} en {Name}` or None.
+    """Return `Nave industrial en {phrase} en {Name}` or None.
+
+    Phrase mapping:
+      - "venta"          → "venta"
+      - "alquiler"       → "alquiler"
+      - "venta_alquiler" → "venta o alquiler"  (ad offers both modalities;
+        detected when title+description hit both venta and alquiler keyword
+        families ≥ 2 times each — see `parser.parse_ad_type`)
 
     Returns None when either input is missing so the caller can fall back
     to the original scraped title rather than producing nonsense.
     """
     if not ad_type or not name:
         return None
-    if ad_type not in ("venta", "alquiler"):
+    phrase = _AD_TYPE_TITLE_PHRASE.get(ad_type)
+    if not phrase:
         return None
-    return f"Nave industrial en {ad_type} en {name}"
+    return f"Nave industrial en {phrase} en {name}"
 
 
 def slugify_title(title: str | None, listing_id: str, max_length: int = 75) -> str:

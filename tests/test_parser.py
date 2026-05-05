@@ -124,6 +124,52 @@ class TestParseAdType:
         assert result is None
         assert any("ad_type tied in body" in r.message for r in caplog.records)
 
+    # ── Dual offering detection (venta_alquiler) ──────────────────────
+    def test_dual_offering_when_both_keyword_families_strong(self):
+        # >= 2 hits of each family → dual offering, even with no URL hint.
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            description=(
+                "Se vende o alquila nave industrial. Consulte precio de "
+                "VENTA o ALQUILER. Posibilidad de venta directa o renta "
+                "mensual con arriendo flexible."
+            ),
+        )
+        assert result == "venta_alquiler"
+
+    def test_dual_offering_overrides_url_alquiler_hint(self):
+        # Real-world scenario: listing published under /alquiler-de-naves/
+        # but the ad explicitly offers both modalities. URL hint loses.
+        result = parse_ad_type(
+            "https://milanuncios.com/alquiler-de-naves/don-benito.htm",
+            title="Nave 902 m² céntrica",
+            description=(
+                "Ofrecemos esta propiedad bajo una doble modalidad "
+                "(venta o alquiler). Consulte precio de VENTA o ALQUILER. "
+                "Disponible para venta directa o arriendo mensual."
+            ),
+        )
+        assert result == "venta_alquiler"
+
+    def test_dual_offering_overrides_url_venta_hint(self):
+        result = parse_ad_type(
+            "https://milanuncios.com/venta-de-naves/x.htm",
+            description=(
+                "Vendo o alquilo nave. Compraventa o arriendo. Renta "
+                "mensual disponible. Venta directa también."
+            ),
+        )
+        assert result == "venta_alquiler"
+
+    def test_single_phrase_does_not_trigger_dual(self):
+        # A single mention of each family → tie / single, not dual.
+        result = parse_ad_type(
+            "https://example.com/x.htm",
+            description="Se vende. Posibilidad de alquiler.",
+        )
+        # 1 venta hit + 1 alquiler hit → tied → None (existing behavior preserved)
+        assert result is None
+
 
 class TestParsePropertyType:
     def test_from_url_naves(self):

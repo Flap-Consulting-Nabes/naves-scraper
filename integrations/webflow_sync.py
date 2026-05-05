@@ -56,9 +56,13 @@ FIELD_MAP_PATTERNS: dict[str, list[str]] = {
     "latitude":         ["latitude", "lat"],
     "longitude":        ["longitude", "lng", "lon"],
     "seller_type":      ["seller-type", "tipo-vendedor", "tipo-anunciante"],
-    "seller_name":      ["seller", "vendedor", "agencia", "anunciante", "empresa"],
-    "phone":            ["phone", "telefono", "teléfono", "contacto"],
-    "url":              ["source-url", "url", "link", "enlace", "url-origen"],
+    "seller_name":      ["contact-name", "seller", "vendedor", "agencia", "anunciante", "empresa"],
+    "phone":            ["contact-number", "phone", "telefono", "teléfono", "contacto"],
+    # Until Benedict creates the dedicated `source-url` slug, the MilAnuncios
+    # listing URL is parked in `google-place-id` as a temporary stash. See
+    # docs/decisions/2026-05-04-source-url-temp-stash.md. The proper Google
+    # Place ID is not yet collected (geocoding Phase 2), so the slot is free.
+    "url":              ["source-url", "google-place-id", "url", "link", "enlace", "url-origen"],
     "published_at":     ["published-date", "fecha-publicacion", "fecha-anuncio", "publish-date"],
 }
 
@@ -88,7 +92,10 @@ def resolve_field_mapping(collection_schema: dict) -> dict[str, str]:
             unmatched.append(db_field)
 
     if unmatched:
-        logger.info(
+        # WARNING (not INFO) so a schema rename that drops a critical
+        # field (e.g. `new-sale-price` → `sale-price`) is visible in the
+        # default log view.
+        logger.warning(
             "[Webflow] Campos DB sin mapeo en la colección (se omitirán): %s", unmatched
         )
     logger.info("[Webflow] Campos mapeados (%d): %s", len(resolved), list(resolved.values()))
@@ -164,7 +171,11 @@ def build_field_data(
             field_data["new-sale-price"] = formatted_price
             # Sale price never goes in the per-m2/month field
             field_data.pop("new-price-sm2-month", None)
-        elif ad_type == "alquiler":
+        elif ad_type in ("alquiler", "venta_alquiler"):
+            # Dual offerings reuse the alquiler routing: the price extracted
+            # from MilAnuncios is the rental rate, and the sale slot stays
+            # empty (the listing rarely quotes both prices). The title
+            # already advertises both modalities via build_canonical_title.
             if "new-price-sm2-month" in available_slugs:
                 field_data["new-price-sm2-month"] = formatted_price
             elif "new-sale-price" in available_slugs:
@@ -273,6 +284,7 @@ async def sync_pending_listings() -> dict:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
 
     synced = 0
     failed = 0

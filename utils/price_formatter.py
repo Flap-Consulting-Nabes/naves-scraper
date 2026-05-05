@@ -26,7 +26,11 @@ def format_price_display(
     if ad_type == "venta" and price_numeric is not None:
         return _format_thousands_es(price_numeric) + " €"
 
-    if ad_type == "alquiler":
+    # Dual offerings ("venta_alquiler") inherit the alquiler routing: the
+    # MilAnuncios price field for these listings is the rental rate (per-m²
+    # or monthly), so we format it the same way. The sale slot stays empty
+    # because the listing rarely quotes both prices.
+    if ad_type in ("alquiler", "venta_alquiler"):
         if price_per_m2 is not None:
             return f"{price_per_m2:.2f}€/m²"
         if price_numeric is not None:

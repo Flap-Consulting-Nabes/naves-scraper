@@ -137,6 +137,11 @@ def init_db(path: str = "naves.db") -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")   # escrituras concurrentes más seguras
+    # Three writers (scraper subprocess, FastAPI handler, Webflow sync)
+    # share this DB. Without a busy timeout, any write collision raises
+    # OperationalError: database is locked. 5 s window covers any
+    # in-progress commit on the slowest path.
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
     conn.commit()

@@ -1,7 +1,7 @@
 """Tests for utils.description_formatter (Iteración 2026-05, Tarea 4)."""
 import pytest
 
-from utils.description_formatter import format_description_html
+from utils.description_formatter import format_description_html, strip_ref_prefix
 
 
 class TestEmptyInputs:
@@ -44,10 +44,11 @@ class TestBullets:
         assert "<li>Suministros disponibles</li>" in out
 
     def test_inline_bullets_split_paragraph_then_list(self):
-        # Real-world-ish: "Ref: 123. Texto. • Bullet 1 • Bullet 2 • Bullet 3"
+        # Leading "Ref: 123." prefix gets stripped before rendering.
         raw = "Ref: 123. Una nave grande. • Acceso • Suministros • Vigilancia"
         out = format_description_html(raw)
-        assert "<p>Ref: 123. Una nave grande.</p>" in out
+        assert "Ref:" not in out
+        assert "<p>Una nave grande.</p>" in out
         assert "<ul>" in out
         assert "<li>Acceso</li>" in out
 
@@ -78,5 +79,42 @@ class TestRealisticBenedictSample:
         out = format_description_html(raw)
         assert "<ul>" in out
         assert out.count("<li>") == 3
-        # The lead context before the first bullet is preserved as a paragraph
-        assert "Ref: 3396-12895" in out
+        # Ref prefix is stripped; the rest of the lead context remains.
+        assert "Ref:" not in out
+        assert "Oportunidad" in out
+
+
+class TestStripRefPrefix:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("Ref: 652-2936. Nave en ALBUJON.", "Nave en ALBUJON."),
+            ("Ref: 109832692-JM-041. Ponemos a su disposición.",
+             "Ponemos a su disposición."),
+            ("REF: ABC123. Texto.", "Texto."),
+            ("Referencia 12345 — Nave grande.", "Nave grande."),
+            ("  Ref:  X1  .  Texto.", "Texto."),
+        ],
+    )
+    def test_known_prefixes_stripped(self, raw, expected):
+        assert strip_ref_prefix(raw) == expected
+
+    def test_no_prefix_left_intact(self):
+        text = "Nave industrial sin referencia inicial."
+        assert strip_ref_prefix(text) == text
+
+    def test_only_strips_at_start(self):
+        # A "Ref:" appearing later in the body must not be touched.
+        text = "Nave grande. Para más info Ref: 123 al teléfono."
+        assert strip_ref_prefix(text) == text
+
+    def test_strip_then_format_e2e(self):
+        # End-to-end: real Don Benito-style description renders cleanly.
+        raw = (
+            "Ref: 109832692-JM-041. Ponemos a su disposición una céntrica "
+            "nave con 902 m². Ofrecemos esta propiedad bajo una doble "
+            "modalidad (venta o alquiler)."
+        )
+        out = format_description_html(raw)
+        assert "Ref:" not in out
+        assert out.startswith("<p>Ponemos a su disposición")

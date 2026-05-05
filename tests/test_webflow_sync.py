@@ -59,6 +59,76 @@ class TestLatitudeLongitudeMapping:
         assert "longitude" not in out
 
 
+class TestContactFieldsMapping:
+    """Iteración 2026-05 follow-up: Benedict added `contact-name` and
+    `contact-number` to the Webflow collection. They now own seller_name and
+    phone respectively, replacing the previously unmapped Spanish slugs."""
+
+    SCHEMA = [
+        {"slug": "name",           "type": "PlainText", "isRequired": True},
+        {"slug": "slug",           "type": "PlainText", "isRequired": True},
+        {"slug": "contact-name",   "type": "PlainText"},
+        {"slug": "contact-number", "type": "PlainText"},
+    ]
+
+    def test_seller_name_maps_to_contact_name(self):
+        mapping = resolve_field_mapping({"fields": self.SCHEMA})
+        assert mapping.get("seller_name") == "contact-name"
+
+    def test_phone_maps_to_contact_number(self):
+        mapping = resolve_field_mapping({"fields": self.SCHEMA})
+        assert mapping.get("phone") == "contact-number"
+
+    def test_seller_name_and_phone_serialized(self):
+        row = {
+            "listing_id": "1",
+            "title": "Test",
+            "webflow_slug": "test",
+            "seller_name": "Inmobiliaria Acme",
+            "phone": "+34 600 111 222",
+        }
+        mapping = {
+            "title": "name",
+            "seller_name": "contact-name",
+            "phone": "contact-number",
+        }
+        out = build_field_data(row, mapping, [], self.SCHEMA)
+        assert out["contact-name"] == "Inmobiliaria Acme"
+        assert out["contact-number"] == "+34 600 111 222"
+
+
+class TestSourceUrlTempStashOnGooglePlaceId:
+    """Until Benedict creates `source-url`, the MilAnuncios listing URL is
+    parked in `google-place-id` as a temporary stash. Documented in
+    docs/decisions/2026-05-04-source-url-temp-stash.md."""
+
+    SCHEMA = [
+        {"slug": "name",            "type": "PlainText", "isRequired": True},
+        {"slug": "slug",            "type": "PlainText", "isRequired": True},
+        {"slug": "google-place-id", "type": "PlainText"},
+    ]
+
+    def test_url_falls_back_to_google_place_id(self):
+        mapping = resolve_field_mapping({"fields": self.SCHEMA})
+        assert mapping.get("url") == "google-place-id"
+
+    def test_url_prefers_source_url_when_present(self):
+        schema = self.SCHEMA + [{"slug": "source-url", "type": "PlainText"}]
+        mapping = resolve_field_mapping({"fields": schema})
+        assert mapping.get("url") == "source-url"
+
+    def test_listing_url_lands_on_google_place_id(self):
+        row = {
+            "listing_id": "1",
+            "title": "T",
+            "webflow_slug": "t",
+            "url": "https://www.milanuncios.com/naves/foo-123.htm",
+        }
+        mapping = {"title": "name", "url": "google-place-id"}
+        out = build_field_data(row, mapping, [], self.SCHEMA)
+        assert out["google-place-id"] == "https://www.milanuncios.com/naves/foo-123.htm"
+
+
 class TestNumberFieldStillFloat:
     """Regression: existing Number-type fields still get float() conversion."""
 
@@ -115,6 +185,20 @@ class TestPriceFormattingByAdType:
         out = build_field_data(row, mapping, [], COLLECTION_FIELDS_WITH_PRICE)
         # falls back to monthly total in the per-m2 slot
         assert out["new-price-sm2-month"] == "1.500 €/mes"
+        assert "new-sale-price" not in out
+
+    def test_venta_alquiler_routes_like_alquiler(self):
+        # Dual offering: price-per-m² lands on the rental slot, sale slot empty.
+        row = self._row(
+            ad_type="venta_alquiler", price_numeric=1500, price_per_m2=1.66,
+        )
+        mapping = {
+            "title": "name",
+            "price_numeric": "new-sale-price",
+            "price_per_m2": "new-price-sm2-month",
+        }
+        out = build_field_data(row, mapping, [], COLLECTION_FIELDS_WITH_PRICE)
+        assert out["new-price-sm2-month"] == "1.66€/m²"
         assert "new-sale-price" not in out
 
     def test_unknown_ad_type_does_not_override_generic(self):

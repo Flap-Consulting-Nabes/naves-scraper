@@ -128,6 +128,12 @@ class TestBuildCanonicalTitle:
         assert build_canonical_title("alquiler", "Madrid") == \
             "Nave industrial en alquiler en Madrid"
 
+    def test_venta_alquiler_uses_dual_phrase(self):
+        # Listings that offer both modalities get "venta o alquiler"
+        # in the canonical title (followed by the {Name}).
+        assert build_canonical_title("venta_alquiler", "Don Benito (Badajoz)") == \
+            "Nave industrial en venta o alquiler en Don Benito (Badajoz)"
+
     def test_unknown_ad_type_returns_none(self):
         assert build_canonical_title("unknown", "Madrid") is None
 

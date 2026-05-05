@@ -26,6 +26,31 @@ _BULLET_RE = re.compile(r"\s*•\s*")
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n+")
 _MIN_BULLETS_FOR_LIST = 2
 
+# MilAnuncios listings often start with an internal reference like
+# "Ref: 652-2936." or "Ref: 109832692-JM-041." that has no value to the
+# CMS reader. Strip the prefix (and the period/whitespace that follows)
+# before rendering. Anchored to the start so it never eats a Ref later
+# in the body (e.g. inside an inline link).
+_REF_PREFIX_RE = re.compile(
+    # "Ref:" / "REF " / "Referencia"  +  alphanumeric code with dashes/dots
+    # +  optional terminator (period, dash, em-dash, colon) + whitespace
+    r"^\s*Ref(?:erencia)?[\s:.\-]*[A-Za-z0-9][A-Za-z0-9.\-]*\s*[.\-:–—]?\s*",
+    re.IGNORECASE,
+)
+
+
+def strip_ref_prefix(text: str) -> str:
+    """Remove a leading "Ref: <code>." prefix from a description.
+
+    Examples that match (anchored at the start):
+        "Ref: 652-2936. Nave en ALBUJON..." → "Nave en ALBUJON..."
+        "Ref: 109832692-JM-041. Ponemos..." → "Ponemos..."
+        "REFERENCIA 12345 — Nave..."         → "Nave..."
+
+    Anything not at the start is left alone.
+    """
+    return _REF_PREFIX_RE.sub("", text, count=1)
+
 
 def format_description_html(raw: str | None) -> str | None:
     """Return RichText-compatible HTML for `raw`, or None if input is empty."""
@@ -33,6 +58,7 @@ def format_description_html(raw: str | None) -> str | None:
         return None
 
     cleaned = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+    cleaned = strip_ref_prefix(cleaned).strip()
     if not cleaned:
         return None
 

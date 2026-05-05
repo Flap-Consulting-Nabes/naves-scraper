@@ -22,6 +22,9 @@ scheduler.db
 # Imágenes descargadas (demasiado grandes para git)
 images/
 
+# Audit + migration reports (regenerable from scripts/)
+/reports/
+
 # Chrome — perfil acumulado de fingerprint anti-bot (máquina específica)
 chrome_profile/
 
