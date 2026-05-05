@@ -648,7 +648,11 @@ def parse_ad_type(
     # Cross-check URL hint with the body. If they agree, decide quickly.
     if url_says_alquiler and not url_says_venta:
         if is_dual:
-            logger.info(
+            # WARNING (Codex review B6): dual classification can fire on
+            # comparative-pricing venta listings ("precio de venta 900 €/m²;
+            # alquiler estimado 6 €/m²"). Surface for audit so genuine
+            # mis-classifications are caught.
+            logger.warning(
                 "[parser] URL says alquiler but body offers both "
                 "(%d venta / %d alquiler hits) — using venta_alquiler. url=%s",
                 venta_hits, alquiler_hits, url,
@@ -665,7 +669,8 @@ def parse_ad_type(
 
     if url_says_venta and not url_says_alquiler:
         if is_dual:
-            logger.info(
+            # WARNING (Codex review B6): see paired log above.
+            logger.warning(
                 "[parser] URL says venta but body offers both "
                 "(%d venta / %d alquiler hits) — using venta_alquiler. url=%s",
                 venta_hits, alquiler_hits, url,
@@ -908,6 +913,17 @@ def parse_listing_page(url: str, html: str) -> dict:
 
     # Extraer JSON embebido (fuente primaria)
     props = parse_initial_props_json(html)
+    if not props:
+        # Codex review B4: silent failure path. Without __INITIAL_PROPS__
+        # the row will land in the DB with a recovered listing_id but
+        # almost every other field empty. Surface this as a WARNING so
+        # the dashboard log shows the page-structure regression instead
+        # of pretending the scrape succeeded.
+        logger.warning(
+            "[parser] __INITIAL_PROPS__ not found for %s — most fields "
+            "will be empty (page blocked, A/B test, or layout change)",
+            url,
+        )
     ad = props.get("ad", {})
     shop = props.get("shop", {})
 
@@ -923,6 +939,11 @@ def parse_listing_page(url: str, html: str) -> dict:
     if price_per_m2 is None and price_numeric and surface_m2 and surface_m2 > 0:
         price_per_m2 = int(price_numeric * 100 / surface_m2) / 100.0
 
+    # Codex review B5: cache title/description so parse_ad_type's
+    # body-scan (capa 4) doesn't re-traverse the BeautifulSoup tree.
+    title = parse_title(soup)
+    description = parse_description(soup, ad_json=ad)
+
     return {
         # Identificación
         "listing_id": ad.get("id") or parse_listing_id(url),
@@ -930,8 +951,8 @@ def parse_listing_page(url: str, html: str) -> dict:
         "reference": parse_reference(soup, ad_json=ad),
 
         # Contenido principal
-        "title": parse_title(soup),
-        "description": parse_description(soup, ad_json=ad),
+        "title": title,
+        "description": description,
 
         # Precio
         "price": parse_price(soup, ad_json=ad),
@@ -953,8 +974,8 @@ def parse_listing_page(url: str, html: str) -> dict:
         "ad_type": parse_ad_type(
             url,
             ad_json=ad,
-            title=parse_title(soup),
-            description=parse_description(soup, ad_json=ad),
+            title=title,
+            description=description,
         ),
         "property_type": parse_property_type(url, ad_json=ad),
 

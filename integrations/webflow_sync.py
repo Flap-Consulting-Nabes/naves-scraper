@@ -255,12 +255,22 @@ async def _build_source_url_index(
         )
         return {}
 
+    # Codex review B7: guard against the temporary `google-place-id`
+    # stash sharing a slot with real Place IDs. If someone manually sets
+    # a real Google Place ID in that field before Benedict creates
+    # `source-url`, the index would otherwise treat the Place ID as a
+    # MilAnuncios URL (and fail to match) — silently corrupting dedup
+    # for that item. Filter to URL-shaped values only.
     index: dict[str, str] = {}
     for item in items:
         field_data = item.get("fieldData", {}) or {}
-        url = field_data.get(source_slug)
-        if url:
-            index[str(url).strip()] = item.get("id", "")
+        raw = field_data.get(source_slug)
+        if not raw:
+            continue
+        value = str(raw).strip()
+        if not value.startswith(("http://", "https://")):
+            continue
+        index[value] = item.get("id", "")
     logger.info(
         "[Webflow] Dedup index built: %d items with source-url", len(index)
     )

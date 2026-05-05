@@ -51,6 +51,14 @@ new items get the URL on `source-url`, old items keep theirs on
 - Lat/lng remain on their own dedicated slugs (`latitude`, `longitude`) and
   are unaffected.
 
+## Safeguards added during Codex review (2026-05-04)
+
+- `_build_source_url_index` now filters values that don't start with
+  `http://` / `https://`. If anyone manually pastes a real Google Place
+  ID into the slot before Benedict creates `source-url`, the dedup index
+  silently skips that entry instead of treating the Place ID as a URL
+  and dropping dedup safety for that item.
+
 ## Trade-offs
 
 - **Schema lie:** the slug is named `google-place-id` but holds a URL. Anyone

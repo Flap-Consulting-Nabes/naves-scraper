@@ -161,6 +161,16 @@ class WebflowClient:
         if r.status_code == 404:
             logger.warning("[Webflow] Assets API no disponible (plan sin soporte de assets)")
             return None
+        if r.status_code == 403:
+            # Codex review B3: WEBFLOW_TOKEN lacks assets:read/assets:write.
+            # Surface loudly so the operator notices the misconfigured token
+            # — the upload chain still falls back to Cloudinary, but every
+            # image goes through the slower path until the token is fixed.
+            logger.warning(
+                "[Webflow] Assets API 403 — WEBFLOW_TOKEN missing "
+                "assets:read/assets:write scope. Falling back to Cloudinary."
+            )
+            return None
         r.raise_for_status()
         data = r.json()
 
