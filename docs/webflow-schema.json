@@ -4,7 +4,7 @@
   "singularName": "Spain Warehouse",
   "slug": "es",
   "createdOn": "2024-07-17T19:57:46.256Z",
-  "lastUpdated": "2026-05-04T06:22:48.285Z",
+  "lastUpdated": "2026-05-08T12:56:21.563Z",
   "fields": [
     {
       "id": "ba51e08d0cc9111be92059474e466a2b",
@@ -236,6 +236,18 @@
       "slug": "contact-number",
       "displayName": "Contact Number",
       "helpText": null,
+      "validations": {
+        "singleLine": true
+      }
+    },
+    {
+      "id": "794c8fdb73ebd63fb1f1d35f5f860269",
+      "isEditable": true,
+      "isRequired": false,
+      "type": "PlainText",
+      "slug": "source",
+      "displayName": "Source",
+      "helpText": "The original link from where the scraped content came from",
       "validations": {
         "singleLine": true
       }
