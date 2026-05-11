@@ -159,6 +159,63 @@ class TestUrlFieldPrecedence:
         assert out["source"] == "https://www.milanuncios.com/naves/foo-123.htm"
 
 
+import asyncio
+from unittest.mock import AsyncMock
+
+from integrations.webflow_sync import _build_listing_id_index
+
+
+class TestDedupIndexByListingId:
+    """Dedup index uses listing_id (extracted via regex) as the key,
+    making it robust to URL canonicalization differences."""
+
+    def _make_client(self, items):
+        client = AsyncMock()
+        client.list_items = AsyncMock(return_value=items)
+        return client
+
+    def test_indexes_items_by_listing_id(self):
+        items = [
+            {"id": "item-a", "fieldData": {"source": "https://www.milanuncios.com/x/foo-111.htm"}},
+            {"id": "item-b", "fieldData": {"source": "https://www.milanuncios.com/x/bar-222.htm"}},
+        ]
+        client = self._make_client(items)
+        mapping = {"url": "source"}
+        index = asyncio.run(_build_listing_id_index(client, mapping, None))
+        assert index == {"111": "item-a", "222": "item-b"}
+
+    def test_skips_non_url_values(self):
+        items = [
+            {"id": "item-a", "fieldData": {"source": "ChIJN1t_tDeuEmsRUsoyG83frY4"}},
+            {"id": "item-b", "fieldData": {"source": "https://www.milanuncios.com/x/foo-333.htm"}},
+        ]
+        client = self._make_client(items)
+        mapping = {"url": "source"}
+        index = asyncio.run(_build_listing_id_index(client, mapping, None))
+        assert index == {"333": "item-b"}
+
+    def test_skips_urls_without_listing_id(self):
+        items = [
+            {"id": "item-a", "fieldData": {"source": "https://www.milanuncios.com/naves/"}},
+            {"id": "item-b", "fieldData": {"source": "https://www.milanuncios.com/x/foo-444.htm"}},
+        ]
+        client = self._make_client(items)
+        mapping = {"url": "source"}
+        index = asyncio.run(_build_listing_id_index(client, mapping, None))
+        assert index == {"444": "item-b"}
+
+    def test_returns_empty_when_no_url_slug_mapped(self):
+        client = self._make_client([])
+        index = asyncio.run(_build_listing_id_index(client, {}, None))
+        assert index == {}
+
+    def test_returns_empty_when_list_items_fails(self):
+        client = AsyncMock()
+        client.list_items = AsyncMock(side_effect=RuntimeError("network"))
+        index = asyncio.run(_build_listing_id_index(client, {"url": "source"}, None))
+        assert index == {}
+
+
 class TestNumberFieldStillFloat:
     """Regression: existing Number-type fields still get float() conversion."""
 
@@ -341,44 +398,7 @@ class TestImageSplitting:
         assert [i["url"] for i in out["additional-images"]] == ["u6", "u7", "u8", "u9"]
 
 
-# ─── Iteración 2026-05, Tarea 6: source-url dedup index ───────────────────────
-class _StubClient:
-    def __init__(self, items=None, raise_exc=None):
-        self._items = items or []
-        self._raise = raise_exc
-
-    async def list_items(self, *_, **__):
-        if self._raise:
-            raise self._raise
-        return self._items
-
-
-class TestBuildSourceUrlIndex:
-    @pytest.mark.asyncio
-    async def test_empty_when_field_not_mapped(self):
-        # If the schema has no `url` mapping, we skip the index entirely.
-        index = await _build_source_url_index(_StubClient(), {}, None)
-        assert index == {}
-
-    @pytest.mark.asyncio
-    async def test_returns_url_to_item_id_map(self):
-        items = [
-            {"id": "abc1", "fieldData": {"source-url": "https://example.com/1"}},
-            {"id": "abc2", "fieldData": {"source-url": "https://example.com/2"}},
-            {"id": "abc3", "fieldData": {}},  # no source url
-        ]
-        index = await _build_source_url_index(
-            _StubClient(items), {"url": "source-url"}, None,
-        )
-        assert index == {
-            "https://example.com/1": "abc1",
-            "https://example.com/2": "abc2",
-        }
-
-    @pytest.mark.asyncio
-    async def test_failure_returns_empty_does_not_raise(self):
-        client = _StubClient(raise_exc=RuntimeError("API down"))
-        index = await _build_source_url_index(
-            client, {"url": "source-url"}, None,
-        )
-        assert index == {}
+# (TestBuildSourceUrlIndex removed 2026-05-10 — superseded by
+# TestDedupIndexByListingId above. The renamed function
+# _build_listing_id_index returns {listing_id: item_id} instead of
+# {url: item_id}; the old URL-keyed behavior no longer exists.)

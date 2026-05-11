@@ -283,23 +283,29 @@ def build_field_data(
     return field_data
 
 
-async def _build_source_url_index(
+async def _build_listing_id_index(
     client: WebflowClient,
     field_mapping: dict[str, str],
     cms_locale_id: str | None,
 ) -> dict[str, str]:
-    """Return {source_url: item_id} from existing Webflow items.
+    """Return {listing_id: item_id} from existing Webflow items.
 
-    Empty when the collection has no `url`-style mapped slug — that's the
-    common case until Benedict creates the `source-url` field. We never
-    fail sync because of this; we just lose the Webflow-side dedup safety
-    net for that run.
+    Reads from whichever slug the field-map resolved for `url`
+    (`source` once live; `google-place-id` for legacy items during the
+    migration window). Values are filtered to http(s)-shaped URLs and
+    further filtered to those exposing a trailing numeric listing ID
+    (see _extract_listing_id). Foreign or malformed values are silently
+    skipped so they cannot corrupt the index.
+
+    Empty when the collection has no `url`-style mapped slug, or when
+    list_items fails — we lose the dedup safety net for that run but
+    never fail the sync because of it.
     """
     source_slug = field_mapping.get("url")
     if not source_slug:
         logger.info(
-            "[Webflow] No source-url field mapped; skipping dedup index "
-            "(blocks Tarea 6 until the Webflow schema exposes it)."
+            "[Webflow] No url-style field mapped; skipping dedup index "
+            "(sync will create items without checking for duplicates)."
         )
         return {}
 
@@ -311,12 +317,6 @@ async def _build_source_url_index(
         )
         return {}
 
-    # Codex review B7: guard against the temporary `google-place-id`
-    # stash sharing a slot with real Place IDs. If someone manually sets
-    # a real Google Place ID in that field before Benedict creates
-    # `source-url`, the index would otherwise treat the Place ID as a
-    # MilAnuncios URL (and fail to match) — silently corrupting dedup
-    # for that item. Filter to URL-shaped values only.
     index: dict[str, str] = {}
     for item in items:
         field_data = item.get("fieldData", {}) or {}
@@ -326,9 +326,13 @@ async def _build_source_url_index(
         value = str(raw).strip()
         if not value.startswith(("http://", "https://")):
             continue
-        index[value] = item.get("id", "")
+        listing_id = _extract_listing_id(value)
+        if not listing_id:
+            continue
+        index[listing_id] = item.get("id", "")
     logger.info(
-        "[Webflow] Dedup index built: %d items with source-url", len(index)
+        "[Webflow] Dedup index built: %d items keyed by listing_id "
+        "(from slug=%s)", len(index), source_slug,
     )
     return index
 
