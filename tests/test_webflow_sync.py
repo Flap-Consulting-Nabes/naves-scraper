@@ -121,36 +121,42 @@ class TestContactFieldsMapping:
         assert out["contact-number"] == "+34 600 111 222"
 
 
-class TestSourceUrlTempStashOnGooglePlaceId:
-    """Until Benedict creates `source-url`, the MilAnuncios listing URL is
-    parked in `google-place-id` as a temporary stash. Documented in
-    docs/decisions/2026-05-04-source-url-temp-stash.md."""
+class TestUrlFieldPrecedence:
+    """Live Webflow schema now exposes `source` (PlainText). `google-place-id`
+    is kept in the candidate list as a transitional fallback for items not
+    yet migrated by scripts/migrate_url_to_source.py."""
 
-    SCHEMA = [
+    SCHEMA_WITH_SOURCE = [
+        {"slug": "name",            "type": "PlainText", "isRequired": True},
+        {"slug": "slug",            "type": "PlainText", "isRequired": True},
+        {"slug": "google-place-id", "type": "PlainText"},
+        {"slug": "source",          "type": "PlainText"},
+    ]
+
+    SCHEMA_LEGACY = [
         {"slug": "name",            "type": "PlainText", "isRequired": True},
         {"slug": "slug",            "type": "PlainText", "isRequired": True},
         {"slug": "google-place-id", "type": "PlainText"},
     ]
 
-    def test_url_falls_back_to_google_place_id(self):
-        mapping = resolve_field_mapping({"fields": self.SCHEMA})
+    def test_url_prefers_source_when_present(self):
+        mapping = resolve_field_mapping({"fields": self.SCHEMA_WITH_SOURCE})
+        assert mapping.get("url") == "source"
+
+    def test_url_falls_back_to_google_place_id_when_source_missing(self):
+        mapping = resolve_field_mapping({"fields": self.SCHEMA_LEGACY})
         assert mapping.get("url") == "google-place-id"
 
-    def test_url_prefers_source_url_when_present(self):
-        schema = self.SCHEMA + [{"slug": "source-url", "type": "PlainText"}]
-        mapping = resolve_field_mapping({"fields": schema})
-        assert mapping.get("url") == "source-url"
-
-    def test_listing_url_lands_on_google_place_id(self):
+    def test_listing_url_lands_on_source(self):
         row = {
             "listing_id": "1",
             "title": "T",
             "webflow_slug": "t",
             "url": "https://www.milanuncios.com/naves/foo-123.htm",
         }
-        mapping = {"title": "name", "url": "google-place-id"}
-        out = build_field_data(row, mapping, [], self.SCHEMA)
-        assert out["google-place-id"] == "https://www.milanuncios.com/naves/foo-123.htm"
+        mapping = {"title": "name", "url": "source"}
+        out = build_field_data(row, mapping, [], self.SCHEMA_WITH_SOURCE)
+        assert out["source"] == "https://www.milanuncios.com/naves/foo-123.htm"
 
 
 class TestNumberFieldStillFloat:

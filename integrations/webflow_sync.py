@@ -59,11 +59,13 @@ FIELD_MAP_PATTERNS: dict[str, list[str]] = {
     "seller_type":      ["seller-type", "tipo-vendedor", "tipo-anunciante"],
     "seller_name":      ["contact-name", "seller", "vendedor", "agencia", "anunciante", "empresa"],
     "phone":            ["contact-number", "phone", "telefono", "teléfono", "contacto"],
-    # Until Benedict creates the dedicated `source-url` slug, the MilAnuncios
-    # listing URL is parked in `google-place-id` as a temporary stash. See
-    # docs/decisions/2026-05-04-source-url-temp-stash.md. The proper Google
-    # Place ID is not yet collected (geocoding Phase 2), so the slot is free.
-    "url":              ["source-url", "google-place-id", "url", "link", "enlace", "url-origen"],
+    # New items write the MilAnuncios listing URL to `source` (the slug
+    # Benedict created 2026-05-09). `google-place-id` is kept as a
+    # transitional fallback for items not yet moved by
+    # scripts/migrate_url_to_source.py. Once the back-fill is verified in
+    # prod, drop `google-place-id` from this list (see spec
+    # docs/superpowers/specs/2026-05-10-source-url-migration-design.md).
+    "url":              ["source", "source-url", "google-place-id", "url", "link", "enlace", "url-origen"],
     "published_at":     ["published-date", "fecha-publicacion", "fecha-anuncio", "publish-date"],
 }
 
