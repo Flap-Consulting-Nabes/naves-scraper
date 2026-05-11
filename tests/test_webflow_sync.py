@@ -9,10 +9,34 @@ import pytest
 
 from integrations.webflow_sync import (
     FIELD_MAP_PATTERNS,
-    _build_source_url_index,
+    _extract_listing_id,
     build_field_data,
     resolve_field_mapping,
 )
+
+
+class TestExtractListingId:
+    """Regex extraction of MilAnuncios listing ID from URL."""
+
+    def test_typical_url(self):
+        url = "https://www.milanuncios.com/venta-de-naves-industriales-en-atarfe-granada/atarfe-591093579.htm"
+        assert _extract_listing_id(url) == "591093579"
+
+    def test_alquiler_url(self):
+        url = "https://www.milanuncios.com/alquiler-de-naves-industriales-en-montornes-del-valles-barcelona/montornes-del-valles-583152242.htm"
+        assert _extract_listing_id(url) == "583152242"
+
+    def test_missing_id_returns_none(self):
+        assert _extract_listing_id("https://www.milanuncios.com/naves/foo.htm") is None
+
+    def test_empty_string_returns_none(self):
+        assert _extract_listing_id("") is None
+
+    def test_none_returns_none(self):
+        assert _extract_listing_id(None) is None
+
+    def test_non_milanuncios_url_with_id_still_matches(self):
+        assert _extract_listing_id("https://example.com/x-12345.htm") == "12345"
 
 
 COLLECTION_FIELDS_PLAINTEXT_LAT_LNG = [

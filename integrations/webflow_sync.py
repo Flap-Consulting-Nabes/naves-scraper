@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sqlite3
 from pathlib import Path
 
@@ -65,6 +66,24 @@ FIELD_MAP_PATTERNS: dict[str, list[str]] = {
     "url":              ["source-url", "google-place-id", "url", "link", "enlace", "url-origen"],
     "published_at":     ["published-date", "fecha-publicacion", "fecha-anuncio", "publish-date"],
 }
+
+
+# Match the trailing numeric ID in a MilAnuncios listing URL:
+# https://www.milanuncios.com/.../slug-{ID}.htm
+_LISTING_ID_RE = re.compile(r"-(\d+)\.htm$")
+
+
+def _extract_listing_id(url: str | None) -> str | None:
+    """Extract the trailing numeric listing ID from a MilAnuncios URL.
+
+    Returns None for empty input or URLs without a trailing `-{digits}.htm`.
+    Used to key the Webflow dedup index by the same invariant identifier
+    the DB uses (`listings.listing_id`).
+    """
+    if not url:
+        return None
+    m = _LISTING_ID_RE.search(url)
+    return m.group(1) if m else None
 
 
 def resolve_field_mapping(collection_schema: dict) -> dict[str, str]:
