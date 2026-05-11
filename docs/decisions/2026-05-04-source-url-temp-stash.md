@@ -97,3 +97,22 @@ When `source-url` exists in the Webflow schema:
 - `docs/handoff-next-chat.md` — Tarea 7 ("URL original en CMS") still
   blocked on the Webflow side
 - `docs/iteration-2026-05-feedback.md` — Tareas 6 + 7 design rationale
+
+---
+
+## Resolution (2026-05-10)
+
+Benedict added the `source` slug to the Webflow collection on 2026-05-09.
+The migration is implemented in:
+
+- Code: `integrations/webflow_sync.py` (`FIELD_MAP_PATTERNS["url"]` now
+  lists `source` first; `_build_listing_id_index` replaces the old
+  URL-keyed index; per-row dedup compares `listing_id`).
+- Back-fill: `scripts/migrate_url_to_source.py` (one-shot, run after
+  scheduler pause).
+- Spec: `docs/superpowers/specs/2026-05-10-source-url-migration-design.md`.
+- Plan: `docs/superpowers/plans/2026-05-10-source-url-migration.md`.
+
+Status: **Resolved**. `google-place-id` is still in the candidate list
+as a transitional fallback; remove it in a follow-up PR once the
+back-fill has run cleanly in prod.
