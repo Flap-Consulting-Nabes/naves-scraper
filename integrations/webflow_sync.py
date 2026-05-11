@@ -90,6 +90,55 @@ def _extract_listing_id(url: str | None) -> str | None:
     return m.group(1) if m else None
 
 
+# Title normalization: lowercase, drop punctuation, collapse whitespace.
+# Catches re-listings where the seller posts the same warehouse again with
+# a slightly reformatted title (e.g. ".", "—", extra spaces).
+_TITLE_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
+_TITLE_WS_RE = re.compile(r"\s+")
+
+# Coordinate precision for the composite secondary key. 4 decimals ≈ 11 m,
+# tight enough that adjacent warehouses on the same street produce
+# distinct keys while still tolerating minor geocoder jitter.
+_COORD_PRECISION = 4
+
+
+def _normalize_title(title: str | None) -> str:
+    """Return a canonical form of a listing title for dedup matching.
+
+    Lowercases, replaces punctuation with a single space, and collapses
+    runs of whitespace. Empty input -> "".
+    """
+    if not title:
+        return ""
+    s = title.lower()
+    s = _TITLE_PUNCT_RE.sub(" ", s)
+    s = _TITLE_WS_RE.sub(" ", s).strip()
+    return s
+
+
+def _make_composite_key(
+    title: str | None, lat, lng,
+) -> str | None:
+    """Build the secondary dedup key from normalized title + rounded coords.
+
+    Returns None when any component is missing, non-numeric, or when the
+    title normalizes to an empty string. Same physical warehouse re-listed
+    under a fresh `listing_id` will produce the same composite key
+    (assuming the geocoder remains stable to ~11 m).
+    """
+    norm = _normalize_title(title)
+    if not norm:
+        return None
+    try:
+        lat_f = float(lat) if lat is not None and lat != "" else None
+        lng_f = float(lng) if lng is not None and lng != "" else None
+    except (TypeError, ValueError):
+        return None
+    if lat_f is None or lng_f is None:
+        return None
+    return f"{norm}|{lat_f:.{_COORD_PRECISION}f}|{lng_f:.{_COORD_PRECISION}f}"
+
+
 def resolve_field_mapping(collection_schema: dict) -> dict[str, str]:
     """
     Compara los slugs candidatos con los slugs reales de la colección.
@@ -285,31 +334,41 @@ def build_field_data(
     return field_data
 
 
-async def _build_listing_id_index(
+async def _build_dedup_indices(
     client: WebflowClient,
     field_mapping: dict[str, str],
     cms_locale_id: str | None,
-) -> dict[str, str]:
-    """Return {listing_id: item_id} from existing Webflow items.
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Return (listing_id_index, composite_index) from existing CMS items.
 
-    Reads from whichever slug the field-map resolved for `url`
-    (`source` once live; `google-place-id` for legacy items during the
-    migration window). Values are filtered to http(s)-shaped URLs and
-    further filtered to those exposing a trailing numeric listing ID
-    (see _extract_listing_id). Foreign or malformed values are silently
-    skipped so they cannot corrupt the index.
+    Primary index keys items by the regex-extracted MilAnuncios listing
+    ID (see _extract_listing_id). Secondary index keys items by the
+    composite (normalized_title | lat | lng) — catches the same physical
+    warehouse re-listed under a fresh listing_id (URL changes, content
+    stays put).
 
-    Empty when the collection has no `url`-style mapped slug, or when
-    list_items fails — we lose the dedup safety net for that run but
-    never fail the sync because of it.
+    Both indices are read from the same single pass over `list_items`.
+    Either index may be empty independently:
+
+      * listing_id_index is empty when no url-style slug is mapped or
+        when no item has a usable URL.
+      * composite_index is empty when the row has no title or no
+        latitude/longitude (geocoding hasn't populated them yet).
+
+    Returns (empty, empty) when list_items itself fails — we lose the
+    dedup safety net for that run but never fail the sync because of it.
     """
     source_slug = field_mapping.get("url")
-    if not source_slug:
+    title_slug = field_mapping.get("title")
+    lat_slug = field_mapping.get("latitude")
+    lng_slug = field_mapping.get("longitude")
+
+    if not source_slug and not (title_slug and lat_slug and lng_slug):
         logger.info(
-            "[Webflow] No url-style field mapped; skipping dedup index "
+            "[Webflow] No dedup keys mappable; skipping index "
             "(sync will create items without checking for duplicates)."
         )
-        return {}
+        return {}, {}
 
     try:
         items = await client.list_items(cms_locale_id=cms_locale_id)
@@ -317,26 +376,40 @@ async def _build_listing_id_index(
         logger.warning(
             "[Webflow] list_items failed; skipping dedup index this run: %s", e
         )
-        return {}
+        return {}, {}
 
-    index: dict[str, str] = {}
+    listing_id_index: dict[str, str] = {}
+    composite_index: dict[str, str] = {}
+
     for item in items:
         field_data = item.get("fieldData", {}) or {}
-        raw = field_data.get(source_slug)
-        if not raw:
-            continue
-        value = str(raw).strip()
-        if not value.startswith(("http://", "https://")):
-            continue
-        listing_id = _extract_listing_id(value)
-        if not listing_id:
-            continue
-        index[listing_id] = item.get("id", "")
+        item_id = item.get("id", "")
+
+        # Primary key: listing_id from URL
+        if source_slug:
+            raw = field_data.get(source_slug)
+            if raw:
+                value = str(raw).strip()
+                if value.startswith(("http://", "https://")):
+                    listing_id = _extract_listing_id(value)
+                    if listing_id:
+                        listing_id_index[listing_id] = item_id
+
+        # Secondary key: normalized title + rounded coords
+        if title_slug and lat_slug and lng_slug:
+            composite = _make_composite_key(
+                field_data.get(title_slug),
+                field_data.get(lat_slug),
+                field_data.get(lng_slug),
+            )
+            if composite:
+                composite_index[composite] = item_id
+
     logger.info(
-        "[Webflow] Dedup index built: %d items keyed by listing_id "
-        "(from slug=%s)", len(index), source_slug,
+        "[Webflow] Dedup indices built: %d listing_ids, %d composite (title+coords)",
+        len(listing_id_index), len(composite_index),
     )
-    return index
+    return listing_id_index, composite_index
 
 
 async def sync_pending_listings() -> dict:
@@ -380,12 +453,13 @@ async def sync_pending_listings() -> dict:
             spanish_locale_id = await client.resolve_spanish_locale_id()
             locale_ids = [spanish_locale_id] if spanish_locale_id else None
 
-            # 2026-05-10 source-url migration: build a {listing_id: item_id}
-            # index from the existing CMS items so we can short-circuit
-            # creation when the listing was already synced. Listing-ID is
-            # the regex-extracted trailing numeric ID, matching the DB
-            # primary key — robust to URL canonicalization changes.
-            listing_id_index = await _build_listing_id_index(
+            # 2026-05-10 source-url migration + 2026-05-11 composite dedup:
+            # listing_id (primary) catches the same ad scraped twice.
+            # composite key (secondary, normalized title + rounded coords)
+            # catches the same physical warehouse re-listed under a fresh
+            # listing_id — different URL, same property. See spec
+            # docs/superpowers/specs/2026-05-10-source-url-migration-design.md.
+            listing_id_index, composite_index = await _build_dedup_indices(
                 client, field_mapping, spanish_locale_id,
             )
 
@@ -394,14 +468,30 @@ async def sync_pending_listings() -> dict:
             for row in rows:
                 listing_id = row.get("listing_id", "")
 
-                # Webflow-side dedup: if an existing item already references
-                # this listing_id, adopt its item_id and skip creation.
+                # Primary: listing_id from URL.
                 if listing_id_index and listing_id and listing_id in listing_id_index:
                     existing_id = listing_id_index[listing_id]
                     update_webflow_id(conn, listing_id, existing_id)
                     synced += 1
                     logger.info(
                         "[SKIP-WEBFLOW] %s ya existe como %s (listing_id match)",
+                        listing_id, existing_id,
+                    )
+                    continue
+
+                # Secondary: composite (normalized title + rounded coords).
+                # Catches re-listings where the seller deletes and re-publishes
+                # the same warehouse, getting a new listing_id and URL.
+                composite = _make_composite_key(
+                    row.get("title"), row.get("latitude"), row.get("longitude"),
+                )
+                if composite_index and composite and composite in composite_index:
+                    existing_id = composite_index[composite]
+                    update_webflow_id(conn, listing_id, existing_id)
+                    synced += 1
+                    logger.info(
+                        "[SKIP-WEBFLOW] %s ya existe como %s "
+                        "(title+coords match — likely re-listed)",
                         listing_id, existing_id,
                     )
                     continue

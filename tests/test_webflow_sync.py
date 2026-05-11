@@ -170,17 +170,98 @@ class TestUrlFieldPrecedence:
 import asyncio
 from unittest.mock import AsyncMock
 
-from integrations.webflow_sync import _build_listing_id_index
+from integrations.webflow_sync import (
+    _build_dedup_indices,
+    _make_composite_key,
+    _normalize_title,
+)
 
 
-class TestDedupIndexByListingId:
-    """Dedup index uses listing_id (extracted via regex) as the key,
-    making it robust to URL canonicalization differences."""
+class TestNormalizeTitle:
+    """Title normalization: lowercase, drop punctuation, collapse whitespace."""
+
+    def test_lowercases(self):
+        assert _normalize_title("Nave Industrial") == "nave industrial"
+
+    def test_strips_punctuation(self):
+        assert _normalize_title("Nave en Atarfe, Granada.") == "nave en atarfe granada"
+
+    def test_collapses_whitespace(self):
+        assert _normalize_title("Nave    industrial\n\ten   Atarfe") == "nave industrial en atarfe"
+
+    def test_keeps_unicode_letters(self):
+        # Spanish accents are word chars under re.UNICODE — preserved.
+        assert _normalize_title("Nave en Montornés") == "nave en montornés"
+
+    def test_empty_input(self):
+        assert _normalize_title("") == ""
+        assert _normalize_title(None) == ""
+        assert _normalize_title("   ") == ""
+
+
+class TestMakeCompositeKey:
+    """Composite key fuses normalized title with 4-decimal lat/lng."""
+
+    def test_typical_case(self):
+        key = _make_composite_key(
+            "Nave industrial en Atarfe (Granada)", 37.212919714, -3.698543688,
+        )
+        assert key == "nave industrial en atarfe granada|37.2129|-3.6985"
+
+    def test_string_coordinates_parsed(self):
+        # Webflow stores latitude/longitude as PlainText — values arrive
+        # as strings from list_items.
+        key = _make_composite_key("Nave", "41.560394", "2.270845")
+        assert key == "nave|41.5604|2.2708"
+
+    def test_returns_none_when_title_missing(self):
+        assert _make_composite_key("", 1.0, 2.0) is None
+        assert _make_composite_key(None, 1.0, 2.0) is None
+
+    def test_returns_none_when_lat_missing(self):
+        assert _make_composite_key("Nave", None, 2.0) is None
+        assert _make_composite_key("Nave", "", 2.0) is None
+
+    def test_returns_none_when_lng_missing(self):
+        assert _make_composite_key("Nave", 1.0, None) is None
+
+    def test_returns_none_when_coords_non_numeric(self):
+        assert _make_composite_key("Nave", "not-a-number", 2.0) is None
+        assert _make_composite_key("Nave", 1.0, "junk") is None
+
+    def test_geocoder_jitter_within_11m_collapses(self):
+        # Two coords differing only in the 5th decimal collapse to the
+        # same 4-decimal key — geocoder jitter doesn't break dedup.
+        # (Avoiding the .5 half-step where banker's rounding diverges.)
+        k1 = _make_composite_key("Nave A", 41.56041, 2.27081)
+        k2 = _make_composite_key("Nave A", 41.56043, 2.27083)
+        assert k1 == k2
+
+    def test_adjacent_warehouses_at_4th_decimal_distinct(self):
+        # Coords differing in the 4th decimal (~11m apart) produce
+        # distinct keys — different warehouses on the same street remain
+        # distinguishable.
+        k1 = _make_composite_key("Nave en Calle X", 41.5604, 2.2708)
+        k2 = _make_composite_key("Nave en Calle X", 41.5605, 2.2708)
+        assert k1 != k2
+
+
+class TestBuildDedupIndices:
+    """_build_dedup_indices returns (listing_id_index, composite_index)
+    from a single pass over CMS items."""
 
     def _make_client(self, items):
         client = AsyncMock()
         client.list_items = AsyncMock(return_value=items)
         return client
+
+    def _full_mapping(self) -> dict[str, str]:
+        return {
+            "url": "source",
+            "title": "name",
+            "latitude": "latitude",
+            "longitude": "longitude",
+        }
 
     def test_indexes_items_by_listing_id(self):
         items = [
@@ -188,9 +269,37 @@ class TestDedupIndexByListingId:
             {"id": "item-b", "fieldData": {"source": "https://www.milanuncios.com/x/bar-222.htm"}},
         ]
         client = self._make_client(items)
-        mapping = {"url": "source"}
-        index = asyncio.run(_build_listing_id_index(client, mapping, None))
-        assert index == {"111": "item-a", "222": "item-b"}
+        lid_idx, comp_idx = asyncio.run(_build_dedup_indices(client, {"url": "source"}, None))
+        assert lid_idx == {"111": "item-a", "222": "item-b"}
+        assert comp_idx == {}  # no title/coords mapped
+
+    def test_indexes_items_by_composite(self):
+        items = [
+            {"id": "item-a", "fieldData": {
+                "source": "https://www.milanuncios.com/x/foo-111.htm",
+                "name": "Nave en Atarfe",
+                "latitude": "37.2129",
+                "longitude": "-3.6985",
+            }},
+        ]
+        client = self._make_client(items)
+        lid_idx, comp_idx = asyncio.run(_build_dedup_indices(client, self._full_mapping(), None))
+        assert lid_idx == {"111": "item-a"}
+        assert comp_idx == {"nave en atarfe|37.2129|-3.6985": "item-a"}
+
+    def test_skips_composite_when_coords_missing(self):
+        items = [
+            {"id": "item-a", "fieldData": {
+                "source": "https://www.milanuncios.com/x/foo-111.htm",
+                "name": "Nave sin coords",
+                "latitude": "",
+                "longitude": "",
+            }},
+        ]
+        client = self._make_client(items)
+        lid_idx, comp_idx = asyncio.run(_build_dedup_indices(client, self._full_mapping(), None))
+        assert lid_idx == {"111": "item-a"}
+        assert comp_idx == {}
 
     def test_skips_non_url_values(self):
         items = [
@@ -198,9 +307,8 @@ class TestDedupIndexByListingId:
             {"id": "item-b", "fieldData": {"source": "https://www.milanuncios.com/x/foo-333.htm"}},
         ]
         client = self._make_client(items)
-        mapping = {"url": "source"}
-        index = asyncio.run(_build_listing_id_index(client, mapping, None))
-        assert index == {"333": "item-b"}
+        lid_idx, _ = asyncio.run(_build_dedup_indices(client, {"url": "source"}, None))
+        assert lid_idx == {"333": "item-b"}
 
     def test_skips_urls_without_listing_id(self):
         items = [
@@ -208,20 +316,35 @@ class TestDedupIndexByListingId:
             {"id": "item-b", "fieldData": {"source": "https://www.milanuncios.com/x/foo-444.htm"}},
         ]
         client = self._make_client(items)
-        mapping = {"url": "source"}
-        index = asyncio.run(_build_listing_id_index(client, mapping, None))
-        assert index == {"444": "item-b"}
+        lid_idx, _ = asyncio.run(_build_dedup_indices(client, {"url": "source"}, None))
+        assert lid_idx == {"444": "item-b"}
 
-    def test_returns_empty_when_no_url_slug_mapped(self):
+    def test_returns_empty_when_no_dedup_keys_mappable(self):
         client = self._make_client([])
-        index = asyncio.run(_build_listing_id_index(client, {}, None))
-        assert index == {}
+        lid_idx, comp_idx = asyncio.run(_build_dedup_indices(client, {}, None))
+        assert lid_idx == {} and comp_idx == {}
 
     def test_returns_empty_when_list_items_fails(self):
         client = AsyncMock()
         client.list_items = AsyncMock(side_effect=RuntimeError("network"))
-        index = asyncio.run(_build_listing_id_index(client, {"url": "source"}, None))
-        assert index == {}
+        lid_idx, comp_idx = asyncio.run(_build_dedup_indices(client, self._full_mapping(), None))
+        assert lid_idx == {} and comp_idx == {}
+
+    def test_composite_built_even_when_no_url_slug(self):
+        # Defensive: if `source` is somehow not mapped but title+coords are,
+        # composite-only dedup still works.
+        items = [
+            {"id": "item-a", "fieldData": {
+                "name": "Nave en Atarfe",
+                "latitude": "37.2129",
+                "longitude": "-3.6985",
+            }},
+        ]
+        client = self._make_client(items)
+        mapping = {"title": "name", "latitude": "latitude", "longitude": "longitude"}
+        lid_idx, comp_idx = asyncio.run(_build_dedup_indices(client, mapping, None))
+        assert lid_idx == {}
+        assert comp_idx == {"nave en atarfe|37.2129|-3.6985": "item-a"}
 
 
 class TestNumberFieldStillFloat:
@@ -447,8 +570,8 @@ class TestSyncSkipsExistingListingId:
         mock_client.list_items = AsyncMock(return_value=[existing_cms_item])
         mock_client.resolve_spanish_locale_id = AsyncMock(return_value=None)
         # Trip-wire: if creation ever runs, the test must fail loudly.
-        mock_client.create_item = AsyncMock(
-            side_effect=AssertionError("create_item must not be called"),
+        mock_client.create_item_draft = AsyncMock(
+            side_effect=AssertionError("create_item_draft must not be called"),
         )
 
         monkeypatch.setenv("WEBFLOW_TOKEN", "fake")
@@ -469,3 +592,182 @@ class TestSyncSkipsExistingListingId:
         called_args = mock_update.call_args[0]
         assert called_args[1] == "999"
         assert called_args[2] == "wf-item-existing"
+
+
+class TestSyncSkipsRelistedByCompositeKey:
+    """When a row has a NEW listing_id (re-listed) but the same physical
+    warehouse already lives in the CMS (same normalized title + coords),
+    the composite secondary key catches it."""
+
+    def test_composite_match_short_circuits_creation(self, monkeypatch):
+        # Pending row: a re-listing (new ID 999998) of the same warehouse
+        # the CMS already has under ID 111111.
+        pending_row = {
+            "listing_id": "999998",
+            "url": "https://www.milanuncios.com/x/atarfe-999998.htm",
+            "title": "Nave industrial en Atarfe (Granada)",
+            "latitude": 37.2129,
+            "longitude": -3.6985,
+            "webflow_slug": "nave-atarfe",
+        }
+
+        existing_cms_item = {
+            "id": "wf-item-original",
+            "fieldData": {
+                "source": "https://www.milanuncios.com/x/atarfe-111111.htm",
+                "name": "Nave industrial en Atarfe (Granada)",
+                "latitude": "37.21290000",
+                "longitude": "-3.69850001",
+            },
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.get_collection_schema = AsyncMock(return_value={
+            "fields": [
+                {"slug": "name",      "type": "PlainText", "isRequired": True},
+                {"slug": "slug",      "type": "PlainText", "isRequired": True},
+                {"slug": "source",    "type": "PlainText"},
+                {"slug": "latitude",  "type": "PlainText"},
+                {"slug": "longitude", "type": "PlainText"},
+            ],
+        })
+        mock_client.list_items = AsyncMock(return_value=[existing_cms_item])
+        mock_client.resolve_spanish_locale_id = AsyncMock(return_value=None)
+        mock_client.create_item = AsyncMock(
+            side_effect=AssertionError("create_item must not be called for a re-listing"),
+        )
+
+        monkeypatch.setenv("WEBFLOW_TOKEN", "fake")
+        monkeypatch.setenv("WEBFLOW_COLLECTION_ID", "fake")
+
+        with patch("integrations.webflow_client.WEBFLOW_TOKEN", "fake"), \
+             patch("integrations.webflow_client.COLLECTION_ID", "fake"), \
+             patch("integrations.webflow_sync.get_unsynced_listings", return_value=[pending_row]), \
+             patch("integrations.webflow_sync.update_webflow_id") as mock_update, \
+             patch("integrations.webflow_sync.WebflowClient", return_value=mock_client), \
+             patch("integrations.webflow_sync.sqlite3.connect", return_value=MagicMock()):
+
+            result = asyncio.run(sync_pending_listings())
+
+        assert result["synced"] == 1
+        assert result["failed"] == 0
+        mock_update.assert_called_once()
+        called_args = mock_update.call_args[0]
+        assert called_args[1] == "999998"            # new listing_id from DB row
+        assert called_args[2] == "wf-item-original"  # adopted CMS id of the original
+
+    def test_listing_id_takes_precedence_over_composite(self, monkeypatch):
+        # When BOTH keys match different CMS items (edge case), listing_id
+        # wins. This is deterministic and matches the order in the code.
+        pending_row = {
+            "listing_id": "555",
+            "url": "https://www.milanuncios.com/x/foo-555.htm",
+            "title": "Nave en X",
+            "latitude": 40.0,
+            "longitude": -3.0,
+            "webflow_slug": "nave-x",
+        }
+
+        items = [
+            # Matches by listing_id
+            {"id": "wf-by-lid", "fieldData": {
+                "source": "https://www.milanuncios.com/x/foo-555.htm",
+                "name": "Different name",
+                "latitude": "99.0",
+                "longitude": "99.0",
+            }},
+            # Matches by composite
+            {"id": "wf-by-composite", "fieldData": {
+                "source": "https://www.milanuncios.com/x/other-9999.htm",
+                "name": "Nave en X",
+                "latitude": "40.0",
+                "longitude": "-3.0",
+            }},
+        ]
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.get_collection_schema = AsyncMock(return_value={
+            "fields": [
+                {"slug": "name",      "type": "PlainText", "isRequired": True},
+                {"slug": "slug",      "type": "PlainText", "isRequired": True},
+                {"slug": "source",    "type": "PlainText"},
+                {"slug": "latitude",  "type": "PlainText"},
+                {"slug": "longitude", "type": "PlainText"},
+            ],
+        })
+        mock_client.list_items = AsyncMock(return_value=items)
+        mock_client.resolve_spanish_locale_id = AsyncMock(return_value=None)
+        mock_client.create_item_draft = AsyncMock(
+            side_effect=AssertionError("create_item_draft must not be called"),
+        )
+
+        monkeypatch.setenv("WEBFLOW_TOKEN", "fake")
+        monkeypatch.setenv("WEBFLOW_COLLECTION_ID", "fake")
+
+        with patch("integrations.webflow_client.WEBFLOW_TOKEN", "fake"), \
+             patch("integrations.webflow_client.COLLECTION_ID", "fake"), \
+             patch("integrations.webflow_sync.get_unsynced_listings", return_value=[pending_row]), \
+             patch("integrations.webflow_sync.update_webflow_id") as mock_update, \
+             patch("integrations.webflow_sync.WebflowClient", return_value=mock_client), \
+             patch("integrations.webflow_sync.sqlite3.connect", return_value=MagicMock()):
+
+            asyncio.run(sync_pending_listings())
+
+        called_args = mock_update.call_args[0]
+        assert called_args[2] == "wf-by-lid"  # listing_id wins
+
+
+class TestSyncCreatesItemWhenIndexEmpty:
+    """Codex review NTH-4: when _build_dedup_indices returns empty (because
+    list_items failed), the pending row falls through and IS created — no
+    silent no-op."""
+
+    def test_empty_index_does_not_skip_creation(self, monkeypatch):
+        pending_row = {
+            "listing_id": "777",
+            "url": "https://www.milanuncios.com/x/foo-777.htm",
+            "title": "Nave Test",
+            "latitude": 40.0,
+            "longitude": -3.0,
+            "webflow_slug": "nave-test",
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.get_collection_schema = AsyncMock(return_value={
+            "fields": [
+                {"slug": "name",   "type": "PlainText", "isRequired": True},
+                {"slug": "slug",   "type": "PlainText", "isRequired": True},
+                {"slug": "source", "type": "PlainText"},
+            ],
+        })
+        # list_items raises — indices come back empty.
+        mock_client.list_items = AsyncMock(side_effect=RuntimeError("API down"))
+        mock_client.resolve_spanish_locale_id = AsyncMock(return_value=None)
+        mock_client.create_item_draft = AsyncMock(
+            return_value={"id": "wf-newly-created", "isDraft": True},
+        )
+
+        monkeypatch.setenv("WEBFLOW_TOKEN", "fake")
+        monkeypatch.setenv("WEBFLOW_COLLECTION_ID", "fake")
+
+        with patch("integrations.webflow_client.WEBFLOW_TOKEN", "fake"), \
+             patch("integrations.webflow_client.COLLECTION_ID", "fake"), \
+             patch("integrations.webflow_sync.get_unsynced_listings", return_value=[pending_row]), \
+             patch("integrations.webflow_sync.update_webflow_id"), \
+             patch("integrations.webflow_sync.upload_listing_images",
+                   AsyncMock(return_value=([], []))), \
+             patch("integrations.webflow_sync.WebflowClient", return_value=mock_client), \
+             patch("integrations.webflow_sync.sqlite3.connect", return_value=MagicMock()):
+
+            asyncio.run(sync_pending_listings())
+
+        # Creation MUST happen — without dedup safety, the only correct
+        # behavior is to proceed and let DB-side INSERT OR IGNORE catch
+        # duplicates on next run.
+        mock_client.create_item_draft.assert_awaited_once()
