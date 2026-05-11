@@ -72,7 +72,9 @@ FIELD_MAP_PATTERNS: dict[str, list[str]] = {
 
 # Match the trailing numeric ID in a MilAnuncios listing URL:
 # https://www.milanuncios.com/.../slug-{ID}.htm
-_LISTING_ID_RE = re.compile(r"-(\d+)\.htm$")
+# Tolerates an optional `?query` or `#fragment` after `.htm`, so
+# tracking-tagged URLs still resolve to the same listing.
+_LISTING_ID_RE = re.compile(r"-(\d+)\.htm(?:[?#]|$)")
 
 
 def _extract_listing_id(url: str | None) -> str | None:

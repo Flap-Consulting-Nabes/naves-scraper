@@ -38,6 +38,14 @@ class TestExtractListingId:
     def test_non_milanuncios_url_with_id_still_matches(self):
         assert _extract_listing_id("https://example.com/x-12345.htm") == "12345"
 
+    def test_url_with_query_string(self):
+        url = "https://www.milanuncios.com/x/atarfe-591093579.htm?utm_source=feed"
+        assert _extract_listing_id(url) == "591093579"
+
+    def test_url_with_fragment(self):
+        url = "https://www.milanuncios.com/x/atarfe-591093579.htm#gallery"
+        assert _extract_listing_id(url) == "591093579"
+
 
 COLLECTION_FIELDS_PLAINTEXT_LAT_LNG = [
     {"slug": "name",      "type": "PlainText", "isRequired": True},
