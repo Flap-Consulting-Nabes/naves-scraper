@@ -402,3 +402,62 @@ class TestImageSplitting:
 # TestDedupIndexByListingId above. The renamed function
 # _build_listing_id_index returns {listing_id: item_id} instead of
 # {url: item_id}; the old URL-keyed behavior no longer exists.)
+
+
+from unittest.mock import patch, MagicMock
+
+from integrations.webflow_sync import sync_pending_listings
+
+
+class TestSyncSkipsExistingListingId:
+    """E2E: when a pending DB row's listing_id already exists in the CMS,
+    sync adopts the existing item_id and skips creation."""
+
+    def test_existing_listing_id_short_circuits_creation(self, monkeypatch):
+        pending_row = {
+            "listing_id": "999",
+            "url": "https://www.milanuncios.com/x/foo-999.htm",
+            "title": "Test Warehouse",
+            "webflow_slug": "test-warehouse",
+        }
+
+        existing_cms_item = {
+            "id": "wf-item-existing",
+            "fieldData": {"source": "https://www.milanuncios.com/x/foo-999.htm"},
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.get_collection_schema = AsyncMock(return_value={
+            "fields": [
+                {"slug": "name",   "type": "PlainText", "isRequired": True},
+                {"slug": "slug",   "type": "PlainText", "isRequired": True},
+                {"slug": "source", "type": "PlainText"},
+            ],
+        })
+        mock_client.list_items = AsyncMock(return_value=[existing_cms_item])
+        mock_client.resolve_spanish_locale_id = AsyncMock(return_value=None)
+        # Trip-wire: if creation ever runs, the test must fail loudly.
+        mock_client.create_item = AsyncMock(
+            side_effect=AssertionError("create_item must not be called"),
+        )
+
+        monkeypatch.setenv("WEBFLOW_TOKEN", "fake")
+        monkeypatch.setenv("WEBFLOW_COLLECTION_ID", "fake")
+
+        with patch("integrations.webflow_client.WEBFLOW_TOKEN", "fake"), \
+             patch("integrations.webflow_client.COLLECTION_ID", "fake"), \
+             patch("integrations.webflow_sync.get_unsynced_listings", return_value=[pending_row]), \
+             patch("integrations.webflow_sync.update_webflow_id") as mock_update, \
+             patch("integrations.webflow_sync.WebflowClient", return_value=mock_client), \
+             patch("integrations.webflow_sync.sqlite3.connect", return_value=MagicMock()):
+
+            result = asyncio.run(sync_pending_listings())
+
+        assert result["synced"] == 1
+        assert result["failed"] == 0
+        mock_update.assert_called_once()
+        called_args = mock_update.call_args[0]
+        assert called_args[1] == "999"
+        assert called_args[2] == "wf-item-existing"

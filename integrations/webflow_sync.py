@@ -362,7 +362,7 @@ async def sync_pending_listings() -> dict:
     try:
         async with WebflowClient() as client:
             # Pre-flight: skip the rest of sync (and the expensive ~8 s
-            # CMS pagination of _build_source_url_index) when there is
+            # CMS pagination of _build_listing_id_index) when there is
             # nothing to sync. Codex review Sprint 2 (P2).
             rows = get_unsynced_listings(conn)
             if not rows:
@@ -378,12 +378,12 @@ async def sync_pending_listings() -> dict:
             spanish_locale_id = await client.resolve_spanish_locale_id()
             locale_ids = [spanish_locale_id] if spanish_locale_id else None
 
-            # Iteración 2026-05 (Tarea 6): build a {source_url: item_id} dedup
+            # 2026-05-10 source-url migration: build a {listing_id: item_id}
             # index from the existing CMS items so we can short-circuit
-            # creation when the listing was already synced (or exists as a
-            # leftover draft from a previous run). The index is a no-op when
-            # the schema does not expose a `source-url`-style slug yet.
-            source_url_index = await _build_source_url_index(
+            # creation when the listing was already synced. Listing-ID is
+            # the regex-extracted trailing numeric ID, matching the DB
+            # primary key — robust to URL canonicalization changes.
+            listing_id_index = await _build_listing_id_index(
                 client, field_mapping, spanish_locale_id,
             )
 
@@ -391,16 +391,15 @@ async def sync_pending_listings() -> dict:
 
             for row in rows:
                 listing_id = row.get("listing_id", "")
-                row_url = (row.get("url") or "").strip()
 
                 # Webflow-side dedup: if an existing item already references
-                # this listing's URL, adopt its item_id and skip creation.
-                if source_url_index and row_url and row_url in source_url_index:
-                    existing_id = source_url_index[row_url]
+                # this listing_id, adopt its item_id and skip creation.
+                if listing_id_index and listing_id and listing_id in listing_id_index:
+                    existing_id = listing_id_index[listing_id]
                     update_webflow_id(conn, listing_id, existing_id)
                     synced += 1
                     logger.info(
-                        "[SKIP-WEBFLOW] %s ya existe como %s (source-url match)",
+                        "[SKIP-WEBFLOW] %s ya existe como %s (listing_id match)",
                         listing_id, existing_id,
                     )
                     continue
